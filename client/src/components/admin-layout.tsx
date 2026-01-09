@@ -46,9 +46,7 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
         <Sidebar>
           <SidebarHeader className="p-4">
             <Link href="/admin" className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-sidebar-primary">
-                <span className="text-lg font-bold text-sidebar-primary-foreground">S</span>
-              </div>
+              <img src="/favicon.png" alt="Sakra Logo" className="h-9 w-9" />
               <div>
                 <span className="font-bold text-sidebar-foreground">Sakra IKOC</span>
                 <p className="text-xs text-sidebar-foreground/70">Admin Panel</p>

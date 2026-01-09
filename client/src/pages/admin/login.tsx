@@ -79,9 +79,7 @@ export default function AdminLoginPage() {
         <div className="w-full max-w-md">
           {/* Logo */}
           <div className="flex flex-col items-center mb-8">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-sidebar mb-4">
-              <span className="text-3xl font-bold text-sidebar-foreground">S</span>
-            </div>
+            <img src="/favicon.png" alt="Sakra Logo" className="h-16 w-16 mb-4" />
             <h1 className="text-2xl font-bold">Sakra IKOC Admin</h1>
             <p className="text-muted-foreground">Sign in to manage packages</p>
           </div>

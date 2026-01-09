@@ -33,9 +33,7 @@ export default function LandingPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary">
-                <span className="text-lg font-bold text-primary-foreground">S</span>
-              </div>
+              <img src="/favicon.png" alt="Sakra Logo" className="h-9 w-9" />
               <span className="text-xl font-bold tracking-tight">Sakra IKOC</span>
             </div>
             <div className="flex items-center gap-2">
@@ -219,9 +217,7 @@ export default function LandingPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary">
-                <span className="text-sm font-bold text-primary-foreground">S</span>
-              </div>
+              <img src="/favicon.png" alt="Sakra Logo" className="h-8 w-8" />
               <span className="font-semibold">Sakra IKOC</span>
             </div>
             <p className="text-sm text-muted-foreground">
