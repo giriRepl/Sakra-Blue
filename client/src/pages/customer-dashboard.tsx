@@ -1,17 +1,34 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { LogOut, Clock, CheckCircle, AlertCircle, ChevronRight, Package, User, Baby } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { LogOut, Clock, CheckCircle, AlertCircle, ChevronRight, Package, User, Baby, Edit, MapPin, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { LoadingPage } from "@/components/loading-spinner";
 import { EmptyState } from "@/components/empty-state";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useCustomerAuth } from "@/lib/auth";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { PurchaseWithDetails, Redemption, Service, Member } from "@shared/schema";
 import { format, differenceInDays, isPast } from "date-fns";
+
+const profileFormSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  age: z.coerce.number().min(1, "Age must be positive"),
+  location: z.string().min(1, "Location is required"),
+  gender: z.enum(["male", "female", "other"], { required_error: "Please select your gender" }),
+});
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -172,12 +189,65 @@ function PurchaseCard({ purchase }: PurchaseCardProps) {
 
 export default function CustomerDashboardPage() {
   const [, navigate] = useLocation();
-  const { customer, token, logout, isLoading: authLoading } = useCustomerAuth();
+  const { customer, token, logout, isLoading: authLoading, refreshCustomer } = useCustomerAuth();
+  const { toast } = useToast();
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
+  const profileForm = useForm<z.infer<typeof profileFormSchema>>({
+    resolver: zodResolver(profileFormSchema),
+    defaultValues: {
+      name: customer?.name || "",
+      age: customer?.age || 30,
+      location: customer?.location || "",
+      gender: (customer?.gender as "male" | "female" | "other") || undefined,
+    },
+  });
 
   const { data: purchases, isLoading } = useQuery<PurchaseWithDetails[]>({
     queryKey: ["/api/customers/purchases"],
     enabled: !!token,
   });
+
+  const profileMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof profileFormSchema>) => {
+      const res = await apiRequest("POST", "/api/customers/profile", data);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Profile Updated",
+        description: "Your profile has been updated successfully.",
+      });
+      setIsEditDialogOpen(false);
+      // Refresh customer data in local storage
+      if (customer) {
+        const updatedCustomer = { ...customer, ...data };
+        localStorage.setItem("customer", JSON.stringify(updatedCustomer));
+        refreshCustomer();
+      }
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update profile. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEditProfile = () => {
+    profileForm.reset({
+      name: customer?.name || "",
+      age: customer?.age || 30,
+      location: customer?.location || "",
+      gender: (customer?.gender as "male" | "female" | "other") || undefined,
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleProfileSubmit = (data: z.infer<typeof profileFormSchema>) => {
+    profileMutation.mutate(data);
+  };
 
   if (authLoading) {
     return <LoadingPage />;
@@ -224,24 +294,165 @@ export default function CustomerDashboardPage() {
       </header>
 
       <main className="mx-auto max-w-2xl px-4 py-6">
-        {/* User Info */}
-        <Card className="mb-6">
-          <CardContent className="pt-6">
+        {/* User Profile */}
+        <Card className="mb-6" data-testid="card-user-profile">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <User className="h-5 w-5 text-primary" />
+                My Profile
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleEditProfile}
+                data-testid="button-edit-profile"
+              >
+                <Edit className="h-4 w-4 mr-1" />
+                Edit
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                 <span className="text-lg font-semibold text-primary">
-                  {customer.mobile.slice(-2)}
+                  {customer.name ? customer.name.charAt(0).toUpperCase() : customer.mobile.slice(-2)}
                 </span>
               </div>
               <div>
-                <p className="font-medium">+91 {customer.mobile}</p>
-                <p className="text-sm text-muted-foreground">
-                  {purchases?.length || 0} package{(purchases?.length || 0) !== 1 ? "s" : ""} purchased
+                <p className="font-medium">{customer.name || "Name not set"}</p>
+                <p className="text-sm text-muted-foreground">+91 {customer.mobile}</p>
+              </div>
+            </div>
+            <Separator />
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Age</p>
+                <p className="font-medium">{customer.age ? `${customer.age} years` : "Not set"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Location</p>
+                <p className="font-medium flex items-center gap-1">
+                  {customer.location ? (
+                    <>
+                      <MapPin className="h-3.5 w-3.5" />
+                      {customer.location}
+                    </>
+                  ) : (
+                    "Not set"
+                  )}
                 </p>
               </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Gender</p>
+                <p className="font-medium capitalize">{customer.gender || "Not set"}</p>
+              </div>
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {purchases?.length || 0} package{(purchases?.length || 0) !== 1 ? "s" : ""} purchased
             </div>
           </CardContent>
         </Card>
+
+        {/* Edit Profile Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Profile</DialogTitle>
+              <DialogDescription>
+                Update your personal information
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...profileForm}>
+              <form onSubmit={profileForm.handleSubmit(handleProfileSubmit)} className="space-y-4">
+                <FormField
+                  control={profileForm.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Your full name" data-testid="input-edit-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={profileForm.control}
+                  name="age"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Age</FormLabel>
+                      <FormControl>
+                        <Input {...field} type="number" min={1} placeholder="Your age" data-testid="input-edit-age" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={profileForm.control}
+                  name="location"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Location</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="City, State" data-testid="input-edit-location" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={profileForm.control}
+                  name="gender"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Gender</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-edit-gender">
+                            <SelectValue placeholder="Select your gender" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="male">Male</SelectItem>
+                          <SelectItem value="female">Female</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="flex gap-3 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setIsEditDialogOpen(false)}
+                    data-testid="button-cancel-edit"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="flex-1"
+                    disabled={profileMutation.isPending}
+                    data-testid="button-save-profile"
+                  >
+                    {profileMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : null}
+                    Save Changes
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
 
         {isLoading ? (
           <LoadingPage />

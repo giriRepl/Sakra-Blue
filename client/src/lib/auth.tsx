@@ -6,6 +6,7 @@ interface CustomerAuthContextType {
   token: string | null;
   login: (customer: Customer, token: string) => void;
   logout: () => void;
+  refreshCustomer: () => void;
   isLoading: boolean;
 }
 
@@ -49,8 +50,15 @@ export function CustomerAuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("customer");
   };
 
+  const refreshCustomer = () => {
+    const storedCustomer = localStorage.getItem("customer");
+    if (storedCustomer) {
+      setCustomer(JSON.parse(storedCustomer));
+    }
+  };
+
   return (
-    <CustomerAuthContext.Provider value={{ customer, token, login, logout, isLoading }}>
+    <CustomerAuthContext.Provider value={{ customer, token, login, logout, refreshCustomer, isLoading }}>
       {children}
     </CustomerAuthContext.Provider>
   );
