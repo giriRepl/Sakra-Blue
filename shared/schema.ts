@@ -131,11 +131,43 @@ export const otpSessionSchema = z.object({
 
 export type OtpSession = z.infer<typeof otpSessionSchema>;
 
+// Members table - covered individuals for a purchase
+export const members = pgTable("members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  purchaseId: varchar("purchase_id").notNull().references(() => purchases.id),
+  name: text("name").notNull(),
+  age: integer("age").notNull(),
+  type: text("type").notNull(), // 'adult' or 'kid'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const membersRelations = relations(members, ({ one }) => ({
+  purchase: one(purchases, {
+    fields: [members.purchaseId],
+    references: [purchases.id],
+  }),
+}));
+
+export const memberSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  age: z.number().min(0, "Age must be positive"),
+  type: z.enum(["adult", "kid"]),
+});
+
+export type Member = typeof members.$inferSelect;
+export type InsertMember = {
+  purchaseId: string;
+  name: string;
+  age: number;
+  type: string;
+};
+
 // Purchase with full details for API responses
 export type PurchaseWithDetails = Purchase & {
   customer: Customer;
   package: Package;
   redemptions: Redemption[];
+  members?: Member[];
 };
 
 // Dashboard stats type

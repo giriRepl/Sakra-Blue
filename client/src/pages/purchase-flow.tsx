@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation, Link } from "wouter";
-import { ArrowLeft, Phone, Shield, CreditCard, CheckCircle, ChevronRight, Loader2 } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { ArrowLeft, Phone, Shield, CreditCard, CheckCircle, ChevronRight, Loader2, Users, User, Baby } from "lucide-react";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Package } from "@shared/schema";
 
-type Step = "mobile" | "otp" | "payment" | "success";
+type Step = "mobile" | "otp" | "payment" | "members" | "success";
 
 const mobileSchema = z.object({
   mobile: z.string().regex(/^[0-9]{10}$/, "Please enter a valid 10-digit mobile number"),
@@ -26,6 +26,17 @@ const mobileSchema = z.object({
 
 const otpSchema = z.object({
   otp: z.string().length(2, "Please enter the complete OTP"),
+});
+
+const memberItemSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  age: z.coerce.number().min(0, "Age must be positive"),
+  type: z.enum(["adult", "kid"]),
+});
+
+const membersFormSchema = z.object({
+  adults: z.array(memberItemSchema),
+  kids: z.array(memberItemSchema),
 });
 
 function formatPrice(price: number) {
@@ -36,7 +47,7 @@ function formatPrice(price: number) {
   }).format(price);
 }
 
-const steps = ["Details", "Verify", "Payment", "Success"];
+const steps = ["Details", "Verify", "Payment", "Members", "Done"];
 
 function StepIndicator({ currentStep }: { currentStep: number }) {
   return (
@@ -81,7 +92,7 @@ export default function PurchaseFlowPage() {
   const [mobile, setMobile] = useState("");
   const [purchaseId, setPurchaseId] = useState<string | null>(null);
 
-  const stepIndex = { mobile: 0, otp: 1, payment: 2, success: 3 }[step];
+  const stepIndex = { mobile: 0, otp: 1, payment: 2, members: 3, success: 4 }[step];
 
   const { data: pkg, isLoading } = useQuery<Package>({
     queryKey: ["/api/packages", packageId],
@@ -96,6 +107,15 @@ export default function PurchaseFlowPage() {
   const otpForm = useForm<z.infer<typeof otpSchema>>({
     resolver: zodResolver(otpSchema),
     defaultValues: { otp: "" },
+  });
+
+  // Initialize members form with correct number of adults and kids from package
+  const membersForm = useForm<z.infer<typeof membersFormSchema>>({
+    resolver: zodResolver(membersFormSchema),
+    defaultValues: {
+      adults: Array.from({ length: pkg?.adultsCount || 0 }, () => ({ name: "", age: 18, type: "adult" as const })),
+      kids: Array.from({ length: pkg?.kidsCount || 0 }, () => ({ name: "", age: 5, type: "kid" as const })),
+    },
   });
 
   const sendOtpMutation = useMutation({
@@ -147,13 +167,38 @@ export default function PurchaseFlowPage() {
     },
     onSuccess: (data) => {
       setPurchaseId(data.id);
-      setStep("success");
-      queryClient.invalidateQueries({ queryKey: ["/api/purchases"] });
+      // Reset members form with correct counts when entering members step
+      membersForm.reset({
+        adults: Array.from({ length: pkg?.adultsCount || 0 }, () => ({ name: "", age: 18, type: "adult" as const })),
+        kids: Array.from({ length: pkg?.kidsCount || 0 }, () => ({ name: "", age: 5, type: "kid" as const })),
+      });
+      setStep("members");
     },
     onError: () => {
       toast({
         title: "Payment Failed",
         description: "Unable to process payment. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const membersMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof membersFormSchema>) => {
+      const allMembers = [...data.adults, ...data.kids];
+      const res = await apiRequest("POST", `/api/purchases/${purchaseId}/members`, {
+        members: allMembers,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      setStep("success");
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save member details. Please try again.",
         variant: "destructive",
       });
     },
@@ -169,6 +214,31 @@ export default function PurchaseFlowPage() {
 
   const handlePayment = () => {
     purchaseMutation.mutate();
+  };
+
+  const handleMembersSubmit = (data: z.infer<typeof membersFormSchema>) => {
+    // Validate ages before submitting
+    for (const adult of data.adults) {
+      if (adult.age < 16) {
+        toast({
+          title: "Invalid Age",
+          description: `Adult "${adult.name || 'member'}" must be 16 years or older`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    for (const kid of data.kids) {
+      if (kid.age >= 16) {
+        toast({
+          title: "Invalid Age",
+          description: `Kid "${kid.name || 'member'}" must be under 16 years`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    membersMutation.mutate(data);
   };
 
   if (isLoading) {
@@ -206,6 +276,7 @@ export default function PurchaseFlowPage() {
                   if (step === "mobile") navigate(`/package/${packageId}`);
                   else if (step === "otp") setStep("mobile");
                   else if (step === "payment") setStep("otp");
+                  else if (step === "members") setStep("payment");
                 }}
                 data-testid="button-back"
               >
@@ -386,6 +457,151 @@ export default function PurchaseFlowPage() {
               ) : null}
               Pay {formatPrice(pkg.price)}
             </Button>
+          </div>
+        )}
+
+        {/* Members Step */}
+        {step === "members" && (
+          <div className="space-y-6" data-testid="step-members">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  Member Details
+                </CardTitle>
+                <CardDescription>
+                  Enter details for all covered members
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Form {...membersForm}>
+                  <form onSubmit={membersForm.handleSubmit(handleMembersSubmit)} className="space-y-6">
+                    {/* Adults Section */}
+                    {pkg.adultsCount > 0 && (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 text-primary" />
+                          <h3 className="font-medium">Adults ({pkg.adultsCount})</h3>
+                          <Badge variant="secondary" className="text-xs">Age 16+</Badge>
+                        </div>
+                        {Array.from({ length: pkg.adultsCount }).map((_, index) => (
+                          <div key={`adult-${index}`} className="rounded-lg border p-4 space-y-4">
+                            <p className="text-sm font-medium text-muted-foreground">Adult {index + 1}</p>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <FormField
+                                control={membersForm.control}
+                                name={`adults.${index}.name`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Name</FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        {...field}
+                                        placeholder="Full name"
+                                        data-testid={`input-adult-${index}-name`}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={membersForm.control}
+                                name={`adults.${index}.age`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Age</FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        {...field}
+                                        type="number"
+                                        min={16}
+                                        placeholder="Age (16+)"
+                                        data-testid={`input-adult-${index}-age`}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Kids Section */}
+                    {pkg.kidsCount > 0 && (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          <Baby className="h-4 w-4 text-primary" />
+                          <h3 className="font-medium">Kids ({pkg.kidsCount})</h3>
+                          <Badge variant="secondary" className="text-xs">Under 16</Badge>
+                        </div>
+                        {Array.from({ length: pkg.kidsCount }).map((_, index) => (
+                          <div key={`kid-${index}`} className="rounded-lg border p-4 space-y-4">
+                            <p className="text-sm font-medium text-muted-foreground">Kid {index + 1}</p>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <FormField
+                                control={membersForm.control}
+                                name={`kids.${index}.name`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Name</FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        {...field}
+                                        placeholder="Full name"
+                                        data-testid={`input-kid-${index}-name`}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={membersForm.control}
+                                name={`kids.${index}.age`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Age</FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        {...field}
+                                        type="number"
+                                        min={0}
+                                        max={15}
+                                        placeholder="Age (0-15)"
+                                        data-testid={`input-kid-${index}-age`}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <Button
+                      type="submit"
+                      size="lg"
+                      className="w-full h-12"
+                      disabled={membersMutation.isPending}
+                      data-testid="button-save-members"
+                    >
+                      {membersMutation.isPending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : null}
+                      Complete Registration
+                      <ChevronRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
           </div>
         )}
 

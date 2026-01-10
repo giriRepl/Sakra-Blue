@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertPackageSchema, type Package, type Service } from "@shared/schema";
 import { z } from "zod";
-import { addDays } from "date-fns";
+import { addMonths } from "date-fns";
 
 // In-memory OTP store (for demo purposes)
 const otpStore = new Map<string, { otp: string; expiresAt: Date; verified: boolean }>();
@@ -174,13 +174,14 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Package not found or inactive" });
       }
 
-      // Create purchase
+      // Create purchase - calculate expiry from validityMonths
+      const expiryDate = addMonths(new Date(), pkg.validityMonths);
       const purchase = await storage.createPurchase({
         customerId: customer.id,
         packageId: pkg.id,
         packageSnapshot: pkg,
         purchaseDate: new Date(),
-        expiryDate: addDays(new Date(), pkg.validityDays),
+        expiryDate,
         amountPaid: pkg.price,
       });
 
@@ -189,6 +190,33 @@ export async function registerRoutes(
       res.json(purchase);
     } catch (error) {
       res.status(500).json({ error: "Failed to create purchase" });
+    }
+  });
+
+  // Add members to purchase
+  app.post("/api/purchases/:purchaseId/members", async (req, res) => {
+    try {
+      const { purchaseId } = req.params;
+      const { members: membersList } = req.body;
+
+      // Validate each member
+      for (const member of membersList) {
+        if (!member.name || member.age === undefined || !member.type) {
+          return res.status(400).json({ error: "Each member requires name, age, and type" });
+        }
+        // Validate age based on type
+        if (member.type === "adult" && member.age < 16) {
+          return res.status(400).json({ error: `Adult "${member.name}" must be 16 years or older` });
+        }
+        if (member.type === "kid" && member.age >= 16) {
+          return res.status(400).json({ error: `Kid "${member.name}" must be under 16 years` });
+        }
+      }
+
+      const createdMembers = await storage.createMembersForPurchase(purchaseId, membersList);
+      res.json(createdMembers);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to add members" });
     }
   });
 

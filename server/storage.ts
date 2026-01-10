@@ -4,6 +4,7 @@ import {
   purchases,
   redemptions,
   admins,
+  members,
   type Package,
   type InsertPackage,
   type Customer,
@@ -14,6 +15,8 @@ import {
   type InsertRedemption,
   type Admin,
   type InsertAdmin,
+  type Member,
+  type InsertMember,
   type PurchaseWithDetails,
   type DashboardStats,
 } from "@shared/schema";
@@ -43,6 +46,11 @@ export interface IStorage {
   // Redemptions
   createRedemption(redemption: InsertRedemption): Promise<Redemption>;
   getRedemptionsByPurchase(purchaseId: string): Promise<Redemption[]>;
+
+  // Members
+  createMember(member: InsertMember): Promise<Member>;
+  getMembersByPurchase(purchaseId: string): Promise<Member[]>;
+  createMembersForPurchase(purchaseId: string, membersList: Omit<InsertMember, 'purchaseId'>[]): Promise<Member[]>;
 
   // Admins
   getAdminByEmail(email: string): Promise<Admin | undefined>;
@@ -167,6 +175,23 @@ export class DatabaseStorage implements IStorage {
 
   async getRedemptionsByPurchase(purchaseId: string): Promise<Redemption[]> {
     return db.select().from(redemptions).where(eq(redemptions.purchaseId, purchaseId)).orderBy(desc(redemptions.redeemedAt));
+  }
+
+  // Members
+  async createMember(member: InsertMember): Promise<Member> {
+    const [created] = await db.insert(members).values(member).returning();
+    return created;
+  }
+
+  async getMembersByPurchase(purchaseId: string): Promise<Member[]> {
+    return db.select().from(members).where(eq(members.purchaseId, purchaseId)).orderBy(members.type, members.name);
+  }
+
+  async createMembersForPurchase(purchaseId: string, membersList: Omit<InsertMember, 'purchaseId'>[]): Promise<Member[]> {
+    if (membersList.length === 0) return [];
+    const membersToInsert = membersList.map(m => ({ ...m, purchaseId }));
+    const created = await db.insert(members).values(membersToInsert).returning();
+    return created;
   }
 
   // Admins
