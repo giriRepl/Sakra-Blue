@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation, Link } from "wouter";
 import { ArrowLeft, Phone, Shield, CreditCard, CheckCircle, ChevronRight, Loader2, Users, User, Baby } from "lucide-react";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -185,7 +185,10 @@ export default function PurchaseFlowPage() {
 
   const membersMutation = useMutation({
     mutationFn: async (data: z.infer<typeof membersFormSchema>) => {
-      const allMembers = [...data.adults, ...data.kids];
+      // Ensure type is set correctly for each member
+      const adults = data.adults.map(m => ({ ...m, type: "adult" as const }));
+      const kids = data.kids.map(m => ({ ...m, type: "kid" as const }));
+      const allMembers = [...adults, ...kids];
       const res = await apiRequest("POST", `/api/purchases/${purchaseId}/members`, {
         members: allMembers,
       });
