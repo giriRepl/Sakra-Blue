@@ -19,8 +19,10 @@ export const packages = pgTable("packages", {
   title: text("title").notNull(),
   description: text("description").notNull(),
   services: jsonb("services").$type<Service[]>().notNull().default([]),
-  validityDays: integer("validity_days").notNull(),
-  price: integer("price").notNull(), // in paise/cents
+  validityMonths: integer("validity_months").notNull(),
+  price: integer("price").notNull(), // in rupees
+  adultsCount: integer("adults_count").notNull().default(1),
+  kidsCount: integer("kids_count").notNull().default(0),
   termsAndConditions: text("terms_and_conditions"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),

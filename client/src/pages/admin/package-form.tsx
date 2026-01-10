@@ -29,8 +29,10 @@ const packageFormSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().min(1, "Description is required"),
   services: z.array(serviceSchema).min(1, "At least one service is required"),
-  validityDays: z.number().min(1, "Validity must be at least 1 day"),
-  price: z.number().min(100, "Price must be at least ₹1"),
+  validityMonths: z.number().min(1, "Validity must be at least 1 month"),
+  price: z.number().min(1, "Price must be at least ₹1"),
+  adultsCount: z.number().min(0, "Adults count cannot be negative"),
+  kidsCount: z.number().min(0, "Kids count cannot be negative"),
   termsAndConditions: z.string().optional(),
   isActive: z.boolean().default(true),
 });
@@ -57,8 +59,10 @@ export default function PackageFormPage() {
       title: "",
       description: "",
       services: [{ id: generateServiceId(), name: "", description: "", quantity: 1 }],
-      validityDays: 30,
+      validityMonths: 12,
       price: 0,
+      adultsCount: 1,
+      kidsCount: 0,
       termsAndConditions: "",
       isActive: true,
     },
@@ -80,8 +84,10 @@ export default function PackageFormPage() {
         title: existingPackage.title,
         description: existingPackage.description,
         services: existingPackage.services,
-        validityDays: existingPackage.validityDays,
+        validityMonths: existingPackage.validityMonths,
         price: existingPackage.price,
+        adultsCount: existingPackage.adultsCount,
+        kidsCount: existingPackage.kidsCount,
         termsAndConditions: existingPackage.termsAndConditions || "",
         isActive: existingPackage.isActive,
       });
@@ -218,7 +224,7 @@ export default function PackageFormPage() {
                     name="price"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Price (in paise)</FormLabel>
+                        <FormLabel>Price (in Rupees)</FormLabel>
                         <FormControl>
                           <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
@@ -228,33 +234,74 @@ export default function PackageFormPage() {
                               type="number"
                               {...field}
                               onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                              placeholder="100000 (= ₹1000)"
+                              placeholder="1000"
                               className="h-12 pl-8"
                               data-testid="input-price"
                             />
                           </div>
                         </FormControl>
-                        <p className="text-xs text-muted-foreground">
-                          Enter price in paise (100 paise = ₹1)
-                        </p>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                   <FormField
                     control={form.control}
-                    name="validityDays"
+                    name="validityMonths"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Validity (days)</FormLabel>
+                        <FormLabel>Validity (months)</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
                             {...field}
                             onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                            placeholder="30"
+                            placeholder="12"
                             className="h-12"
                             data-testid="input-validity"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="adultsCount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Number of Adults Covered</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            {...field}
+                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                            min={0}
+                            placeholder="1"
+                            className="h-12"
+                            data-testid="input-adults"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="kidsCount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Number of Kids Covered</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            {...field}
+                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                            min={0}
+                            placeholder="0"
+                            className="h-12"
+                            data-testid="input-kids"
                           />
                         </FormControl>
                         <FormMessage />
