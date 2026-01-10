@@ -372,6 +372,17 @@ export async function registerRoutes(
     }
   });
 
+  // Get purchases by mobile (path parameter version for frontend compatibility)
+  app.get("/api/admin/purchases/:mobile", requireAdminAuth, async (req, res) => {
+    try {
+      const { mobile } = req.params;
+      const purchases = await storage.getPurchasesByMobile(mobile);
+      res.json(purchases);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch purchases" });
+    }
+  });
+
   // Redeem services
   app.post("/api/admin/redeem", requireAdminAuth, async (req, res) => {
     try {
