@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Search, CheckCircle, Loader2, Package, Calendar, Phone } from "lucide-react";
+import { Search, CheckCircle, Loader2, Package, Calendar, Phone, User, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -153,16 +153,66 @@ export default function AdminRedeemPage() {
 
         {/* Search Results */}
         {searchMobile && (
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="space-y-6">
+            {/* Customer Profile Card */}
+            {purchasesLoading ? (
+              <LoadingCard />
+            ) : purchases && purchases.length > 0 && purchases[0].customer ? (
+              <Card data-testid="card-customer-profile">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="h-5 w-5 text-primary" />
+                    Customer Profile
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Name</p>
+                      <p className="font-medium">{purchases[0].customer.name || "Not provided"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Age</p>
+                      <p className="font-medium">{purchases[0].customer.age || "Not provided"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Location</p>
+                      <p className="font-medium flex items-center gap-1">
+                        {purchases[0].customer.location ? (
+                          <>
+                            <MapPin className="h-3.5 w-3.5" />
+                            {purchases[0].customer.location}
+                          </>
+                        ) : (
+                          "Not provided"
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Gender</p>
+                      <p className="font-medium capitalize">{purchases[0].customer.gender || "Not provided"}</p>
+                    </div>
+                  </div>
+                  <Separator className="my-4" />
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Phone className="h-3.5 w-3.5" />
+                    <span>+91 {searchMobile}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : null}
+
+            <div className="grid gap-6 lg:grid-cols-2">
             {/* Purchases List */}
             <div>
-              <h3 className="font-semibold mb-4">Customer Packages</h3>
+              <h3 className="font-semibold mb-4">Customer Packages ({purchases?.length || 0})</h3>
               {purchasesLoading ? (
                 <LoadingCard />
-              ) : activePurchases.length > 0 ? (
+              ) : purchases && purchases.length > 0 ? (
                 <div className="space-y-4">
-                  {activePurchases.map((purchase) => {
+                  {purchases.map((purchase) => {
                     const pkg = purchase.packageSnapshot;
+                    const isExpired = isPast(new Date(purchase.expiryDate));
                     const daysRemaining = differenceInDays(new Date(purchase.expiryDate), new Date());
                     const isSelected = selectedPurchase?.id === purchase.id;
 
@@ -183,8 +233,8 @@ export default function AdminRedeemPage() {
                                 Purchased {format(new Date(purchase.purchaseDate), "MMM d, yyyy")}
                               </p>
                             </div>
-                            <Badge variant={daysRemaining <= 7 ? "secondary" : "outline"}>
-                              {daysRemaining} days left
+                            <Badge variant={isExpired ? "destructive" : daysRemaining <= 7 ? "secondary" : "outline"}>
+                              {isExpired ? "Expired" : `${daysRemaining} days left`}
                             </Badge>
                           </div>
                           <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
@@ -197,6 +247,30 @@ export default function AdminRedeemPage() {
                               Valid till {format(new Date(purchase.expiryDate), "MMM d, yyyy")}
                             </span>
                           </div>
+
+                          {/* Service Consumption Summary */}
+                          <Separator className="my-3" />
+                          <div className="space-y-2">
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Services Consumed</p>
+                            {pkg.services.map((service) => {
+                              const redemptionCount = (purchase.redemptions || []).filter(
+                                (r) => r.serviceId === service.id
+                              ).length;
+                              const total = service.quantity;
+                              const isFullyConsumed = redemptionCount >= total;
+                              
+                              return (
+                                <div key={service.id} className="flex items-center justify-between text-sm">
+                                  <span className={isFullyConsumed ? "text-muted-foreground line-through" : ""}>
+                                    {service.name}
+                                  </span>
+                                  <Badge variant={isFullyConsumed ? "secondary" : "outline"} className="text-xs">
+                                    {redemptionCount}/{total} used
+                                  </Badge>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </CardContent>
                       </Card>
                     );
@@ -205,8 +279,8 @@ export default function AdminRedeemPage() {
               ) : (
                 <EmptyState
                   icon="package"
-                  title="No active packages"
-                  description={`No active packages found for mobile ${searchMobile}`}
+                  title="No packages found"
+                  description={`No packages found for mobile ${searchMobile}`}
                 />
               )}
             </div>
@@ -291,6 +365,7 @@ export default function AdminRedeemPage() {
                 </Card>
               )}
             </div>
+          </div>
           </div>
         )}
 
