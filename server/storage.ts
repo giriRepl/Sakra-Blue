@@ -128,6 +128,7 @@ export class DatabaseStorage implements IStorage {
     const result: PurchaseWithDetails[] = [];
     for (const purchase of purchaseList) {
       const purchaseRedemptions = await this.getRedemptionsByPurchase(purchase.id);
+      const purchaseMembers = await this.getMembersByPurchase(purchase.id);
       const customer = await this.getCustomer(purchase.customerId);
       const pkg = await this.getPackage(purchase.packageId);
       
@@ -137,6 +138,7 @@ export class DatabaseStorage implements IStorage {
           customer,
           package: pkg,
           redemptions: purchaseRedemptions,
+          members: purchaseMembers,
         });
       }
     }
@@ -154,6 +156,7 @@ export class DatabaseStorage implements IStorage {
     if (!purchase) return undefined;
 
     const purchaseRedemptions = await this.getRedemptionsByPurchase(purchase.id);
+    const purchaseMembers = await this.getMembersByPurchase(purchase.id);
     const customer = await this.getCustomer(purchase.customerId);
     const pkg = await this.getPackage(purchase.packageId);
 
@@ -164,6 +167,7 @@ export class DatabaseStorage implements IStorage {
       customer,
       package: pkg,
       redemptions: purchaseRedemptions,
+      members: purchaseMembers,
     };
   }
 

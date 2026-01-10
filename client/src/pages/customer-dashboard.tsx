@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { LogOut, Clock, CheckCircle, AlertCircle, ChevronRight, Package } from "lucide-react";
+import { LogOut, Clock, CheckCircle, AlertCircle, ChevronRight, Package, User, Baby } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,7 @@ import { LoadingPage } from "@/components/loading-spinner";
 import { EmptyState } from "@/components/empty-state";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useCustomerAuth } from "@/lib/auth";
-import type { PurchaseWithDetails, Redemption, Service } from "@shared/schema";
+import type { PurchaseWithDetails, Redemption, Service, Member } from "@shared/schema";
 import { format, differenceInDays, isPast } from "date-fns";
 
 function formatPrice(price: number) {
@@ -127,6 +127,44 @@ function PurchaseCard({ purchase }: PurchaseCardProps) {
             })}
           </div>
         </div>
+
+        {/* Members List */}
+        {purchase.members && purchase.members.length > 0 && (
+          <>
+            <Separator />
+            <div>
+              <h4 className="text-sm font-medium mb-3">Covered Members</h4>
+              <div className="space-y-2">
+                {purchase.members
+                  .filter((m: Member) => m.type === "adult")
+                  .map((member: Member) => (
+                    <div key={member.id} className="flex items-center gap-3" data-testid={`member-${member.id}`}>
+                      <div className="rounded-full bg-primary/10 p-1.5">
+                        <User className="h-3.5 w-3.5 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{member.name}</p>
+                        <p className="text-xs text-muted-foreground">Adult, {member.age} years</p>
+                      </div>
+                    </div>
+                  ))}
+                {purchase.members
+                  .filter((m: Member) => m.type === "kid")
+                  .map((member: Member) => (
+                    <div key={member.id} className="flex items-center gap-3" data-testid={`member-${member.id}`}>
+                      <div className="rounded-full bg-accent/50 p-1.5">
+                        <Baby className="h-3.5 w-3.5 text-accent-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{member.name}</p>
+                        <p className="text-xs text-muted-foreground">Kid, {member.age} years</p>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );
