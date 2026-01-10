@@ -36,6 +36,7 @@ export interface IStorage {
   getCustomer(id: string): Promise<Customer | undefined>;
   getCustomerByMobile(mobile: string): Promise<Customer | undefined>;
   createCustomer(customer: InsertCustomer): Promise<Customer>;
+  updateCustomerProfile(id: string, profile: { name: string; age: number; location: string; gender: string }): Promise<Customer | undefined>;
 
   // Purchases
   createPurchase(purchase: InsertPurchase): Promise<Purchase>;
@@ -110,6 +111,15 @@ export class DatabaseStorage implements IStorage {
   async createCustomer(customer: InsertCustomer): Promise<Customer> {
     const [created] = await db.insert(customers).values(customer).returning();
     return created;
+  }
+
+  async updateCustomerProfile(id: string, profile: { name: string; age: number; location: string; gender: string }): Promise<Customer | undefined> {
+    const [updated] = await db
+      .update(customers)
+      .set(profile)
+      .where(eq(customers.id, id))
+      .returning();
+    return updated || undefined;
   }
 
   // Purchases

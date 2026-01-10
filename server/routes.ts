@@ -220,6 +220,32 @@ export async function registerRoutes(
     }
   });
 
+  // Update customer profile
+  app.post("/api/customers/profile", async (req, res) => {
+    try {
+      const customerId = req.headers["x-customer-id"] as string;
+      
+      if (!customerId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { name, age, location, gender } = req.body;
+      
+      if (!name || !age || !location || !gender) {
+        return res.status(400).json({ error: "Name, age, location, and gender are required" });
+      }
+
+      const updated = await storage.updateCustomerProfile(customerId, { name, age, location, gender });
+      if (!updated) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+
   // Get customer purchases
   app.get("/api/customers/purchases", async (req, res) => {
     try {

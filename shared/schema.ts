@@ -40,12 +40,23 @@ export type Package = typeof packages.$inferSelect;
 export const customers = pgTable("customers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   mobile: text("mobile").notNull().unique(),
+  name: text("name"),
+  age: integer("age"),
+  location: text("location"),
+  gender: text("gender"), // 'male', 'female', 'other'
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const insertCustomerSchema = createInsertSchema(customers).omit({
   id: true,
   createdAt: true,
+});
+
+export const updateCustomerProfileSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  age: z.coerce.number().min(1, "Age must be positive"),
+  location: z.string().min(1, "Location is required"),
+  gender: z.enum(["male", "female", "other"]),
 });
 
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;

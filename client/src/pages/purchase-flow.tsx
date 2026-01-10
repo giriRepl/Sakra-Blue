@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation, Link } from "wouter";
-import { ArrowLeft, Phone, Shield, CreditCard, CheckCircle, ChevronRight, Loader2, Users, User, Baby } from "lucide-react";
+import { ArrowLeft, Phone, Shield, CreditCard, CheckCircle, ChevronRight, Loader2, Users, User, Baby, MapPin } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -12,13 +12,14 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LoadingPage } from "@/components/loading-spinner";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Package } from "@shared/schema";
 
-type Step = "mobile" | "otp" | "payment" | "members" | "success";
+type Step = "mobile" | "otp" | "payment" | "members" | "profile" | "success";
 
 const mobileSchema = z.object({
   mobile: z.string().regex(/^[0-9]{10}$/, "Please enter a valid 10-digit mobile number"),
@@ -39,6 +40,13 @@ const membersFormSchema = z.object({
   kids: z.array(memberItemSchema),
 });
 
+const profileFormSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  age: z.coerce.number().min(1, "Age must be positive"),
+  location: z.string().min(1, "Location is required"),
+  gender: z.enum(["male", "female", "other"], { required_error: "Please select your gender" }),
+});
+
 function formatPrice(price: number) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -47,7 +55,7 @@ function formatPrice(price: number) {
   }).format(price);
 }
 
-const steps = ["Details", "Verify", "Payment", "Members", "Done"];
+const steps = ["Details", "Verify", "Payment", "Members", "Profile", "Done"];
 
 function StepIndicator({ currentStep }: { currentStep: number }) {
   return (
@@ -92,7 +100,7 @@ export default function PurchaseFlowPage() {
   const [mobile, setMobile] = useState("");
   const [purchaseId, setPurchaseId] = useState<string | null>(null);
 
-  const stepIndex = { mobile: 0, otp: 1, payment: 2, members: 3, success: 4 }[step];
+  const stepIndex = { mobile: 0, otp: 1, payment: 2, members: 3, profile: 4, success: 5 }[step];
 
   const { data: pkg, isLoading } = useQuery<Package>({
     queryKey: ["/api/packages", packageId],
@@ -115,6 +123,17 @@ export default function PurchaseFlowPage() {
     defaultValues: {
       adults: Array.from({ length: pkg?.adultsCount || 0 }, () => ({ name: "", age: 18, type: "adult" as const })),
       kids: Array.from({ length: pkg?.kidsCount || 0 }, () => ({ name: "", age: 5, type: "kid" as const })),
+    },
+  });
+
+  // Profile form for customer details
+  const profileForm = useForm<z.infer<typeof profileFormSchema>>({
+    resolver: zodResolver(profileFormSchema),
+    defaultValues: {
+      name: "",
+      age: 30,
+      location: "",
+      gender: undefined,
     },
   });
 
@@ -195,13 +214,30 @@ export default function PurchaseFlowPage() {
       return res.json();
     },
     onSuccess: () => {
-      setStep("success");
-      queryClient.invalidateQueries({ queryKey: ["/api/purchases"] });
+      setStep("profile");
     },
     onError: (error: Error) => {
       toast({
         title: "Error",
         description: error.message || "Failed to save member details. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const profileMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof profileFormSchema>) => {
+      const res = await apiRequest("POST", "/api/customers/profile", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      setStep("success");
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases"] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to save your profile. Please try again.",
         variant: "destructive",
       });
     },
@@ -244,6 +280,10 @@ export default function PurchaseFlowPage() {
     membersMutation.mutate(data);
   };
 
+  const handleProfileSubmit = (data: z.infer<typeof profileFormSchema>) => {
+    profileMutation.mutate(data);
+  };
+
   if (isLoading) {
     return <LoadingPage />;
   }
@@ -280,6 +320,7 @@ export default function PurchaseFlowPage() {
                   else if (step === "otp") setStep("mobile");
                   else if (step === "payment") setStep("otp");
                   else if (step === "members") setStep("payment");
+                  else if (step === "profile") setStep("members");
                 }}
                 data-testid="button-back"
               >
@@ -598,7 +639,118 @@ export default function PurchaseFlowPage() {
                       {membersMutation.isPending ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       ) : null}
-                      Complete Registration
+                      Continue to Profile
+                      <ChevronRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Profile Step */}
+        {step === "profile" && (
+          <div className="space-y-6" data-testid="step-profile">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5 text-primary" />
+                  Your Profile
+                </CardTitle>
+                <CardDescription>
+                  Please provide your details to complete registration
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Form {...profileForm}>
+                  <form onSubmit={profileForm.handleSubmit(handleProfileSubmit)} className="space-y-6">
+                    <FormField
+                      control={profileForm.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Your Name</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              placeholder="Enter your full name"
+                              data-testid="input-profile-name"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={profileForm.control}
+                      name="age"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Your Age</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              type="number"
+                              min={1}
+                              placeholder="Enter your age"
+                              data-testid="input-profile-age"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={profileForm.control}
+                      name="location"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Location</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              placeholder="City, State"
+                              data-testid="input-profile-location"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={profileForm.control}
+                      name="gender"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Gender</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-profile-gender">
+                                <SelectValue placeholder="Select your gender" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="male">Male</SelectItem>
+                              <SelectItem value="female">Female</SelectItem>
+                              <SelectItem value="other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button
+                      type="submit"
+                      size="lg"
+                      className="w-full h-12"
+                      disabled={profileMutation.isPending}
+                      data-testid="button-save-profile"
+                    >
+                      {profileMutation.isPending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : null}
+                      Complete Purchase
                       <ChevronRight className="ml-2 h-4 w-4" />
                     </Button>
                   </form>
