@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, useLocation, Link } from "wouter";
-import { ArrowLeft, Check, Clock, Calendar, ChevronRight } from "lucide-react";
+import { ArrowLeft, Check, Clock, Calendar, ChevronRight, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,7 @@ function formatPrice(price: number) {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 0,
-  }).format(price / 100);
+  }).format(price);
 }
 
 export default function PackageDetailsPage() {
@@ -81,10 +81,14 @@ export default function PackageDetailsPage() {
                 <div className="flex flex-wrap gap-2">
                   <Badge variant="secondary" className="gap-1">
                     <Clock className="h-3 w-3" />
-                    {pkg.validityDays} days validity
+                    {pkg.validityMonths} months validity
                   </Badge>
                   <Badge variant="outline" className="gap-1">
                     {pkg.services.length} services
+                  </Badge>
+                  <Badge variant="outline" className="gap-1">
+                    <Users className="h-3 w-3" />
+                    {pkg.adultsCount} Adults, {pkg.kidsCount} Kids
                   </Badge>
                 </div>
               </div>

@@ -33,7 +33,7 @@ function formatPrice(price: number) {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 0,
-  }).format(price / 100);
+  }).format(price);
 }
 
 const steps = ["Details", "Verify", "Payment", "Success"];
@@ -357,7 +357,7 @@ export default function PurchaseFlowPage() {
                 <div className="rounded-lg border bg-muted/30 p-4">
                   <h4 className="font-medium mb-2">{pkg.title}</h4>
                   <p className="text-sm text-muted-foreground mb-3">
-                    {pkg.services.length} services • {pkg.validityDays} days validity
+                    {pkg.services.length} services • {pkg.validityMonths} months validity • {pkg.adultsCount} Adults, {pkg.kidsCount} Kids
                   </p>
                   <Separator className="my-3" />
                   <div className="flex items-center justify-between">
@@ -420,7 +420,7 @@ export default function PurchaseFlowPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Validity</span>
-                    <span className="font-medium">{pkg.validityDays} days</span>
+                    <span className="font-medium">{pkg.validityMonths} months</span>
                   </div>
                 </div>
               </CardContent>

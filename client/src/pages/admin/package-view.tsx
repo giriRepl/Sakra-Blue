@@ -15,7 +15,7 @@ function formatPrice(price: number) {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 0,
-  }).format(price / 100);
+  }).format(price);
 }
 
 export default function PackageViewPage() {
@@ -88,14 +88,22 @@ export default function PackageViewPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-4 sm:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
                   <div className="text-center p-4 rounded-lg bg-muted/50">
                     <p className="text-2xl font-bold">{formatPrice(pkg.price)}</p>
                     <p className="text-sm text-muted-foreground">Price</p>
                   </div>
                   <div className="text-center p-4 rounded-lg bg-muted/50">
-                    <p className="text-2xl font-bold">{pkg.validityDays}</p>
-                    <p className="text-sm text-muted-foreground">Days Validity</p>
+                    <p className="text-2xl font-bold">{pkg.validityMonths}</p>
+                    <p className="text-sm text-muted-foreground">Months Validity</p>
+                  </div>
+                  <div className="text-center p-4 rounded-lg bg-muted/50">
+                    <p className="text-2xl font-bold">{pkg.adultsCount}</p>
+                    <p className="text-sm text-muted-foreground">Adults Covered</p>
+                  </div>
+                  <div className="text-center p-4 rounded-lg bg-muted/50">
+                    <p className="text-2xl font-bold">{pkg.kidsCount}</p>
+                    <p className="text-sm text-muted-foreground">Kids Covered</p>
                   </div>
                   <div className="text-center p-4 rounded-lg bg-muted/50">
                     <p className="text-2xl font-bold">{pkg.services.length}</p>
@@ -157,7 +165,7 @@ export default function PackageViewPage() {
                   <span className="text-muted-foreground">Validity</span>
                   <span className="font-medium flex items-center gap-1">
                     <Clock className="h-4 w-4" />
-                    {pkg.validityDays} days
+                    {pkg.validityMonths} months
                   </span>
                 </div>
                 <div className="flex items-center justify-between">

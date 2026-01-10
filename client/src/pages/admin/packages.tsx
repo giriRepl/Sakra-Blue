@@ -21,7 +21,7 @@ function formatPrice(price: number) {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 0,
-  }).format(price / 100);
+  }).format(price);
 }
 
 interface PackageCardProps {
@@ -80,7 +80,11 @@ function PackageCard({ pkg }: PackageCardProps) {
           </div>
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Validity</span>
-            <span className="font-medium">{pkg.validityDays} days</span>
+            <span className="font-medium">{pkg.validityMonths} months</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Coverage</span>
+            <span className="font-medium">{pkg.adultsCount} Adults, {pkg.kidsCount} Kids</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Services</span>

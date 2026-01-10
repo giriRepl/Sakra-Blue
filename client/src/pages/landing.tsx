@@ -15,7 +15,7 @@ function formatPrice(price: number) {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 0,
-  }).format(price / 100);
+  }).format(price);
 }
 
 export default function LandingPage() {
@@ -186,11 +186,12 @@ export default function LandingPage() {
                     </div>
                   </CardContent>
                   <CardFooter className="flex-col gap-4 pt-4 border-t">
+                    <div className="flex w-full items-center justify-between text-sm text-muted-foreground">
+                      <span>{pkg.adultsCount} Adults, {pkg.kidsCount} Kids</span>
+                      <span>Valid {pkg.validityMonths} months</span>
+                    </div>
                     <div className="flex w-full items-baseline justify-between">
                       <span className="text-3xl font-bold">{formatPrice(pkg.price)}</span>
-                      <span className="text-sm text-muted-foreground">
-                        Valid {pkg.validityDays} days
-                      </span>
                     </div>
                     <Link href={`/package/${pkg.id}`} className="w-full">
                       <Button className="w-full" data-testid={`button-view-package-${pkg.id}`}>
