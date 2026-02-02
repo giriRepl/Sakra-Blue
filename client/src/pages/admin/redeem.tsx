@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Search, CheckCircle, Loader2, Package, Calendar, Phone, User, MapPin, Edit } from "lucide-react";
+import { Search, CheckCircle, Loader2, Package, Calendar, Phone, User, MapPin, Edit, Baby, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,7 +20,7 @@ import { EmptyState } from "@/components/empty-state";
 import { useAdminAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { PurchaseWithDetails, Service, Redemption, Customer } from "@shared/schema";
+import type { PurchaseWithDetails, Service, Redemption, Customer, Member } from "@shared/schema";
 import { format, isPast, differenceInDays } from "date-fns";
 
 const customerProfileSchema = z.object({
@@ -377,6 +377,51 @@ export default function AdminRedeemPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {/* Members Section */}
+                    {selectedPurchase.members && selectedPurchase.members.length > 0 && (
+                      <>
+                        <div className="rounded-lg border bg-muted/30 p-4">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Users className="h-4 w-4 text-primary" />
+                            <span className="font-medium text-sm">Covered Members</span>
+                            <Badge variant="secondary" className="ml-auto">
+                              {selectedPurchase.members.length} member{selectedPurchase.members.length !== 1 ? "s" : ""}
+                            </Badge>
+                          </div>
+                          <div className="grid gap-2">
+                            {selectedPurchase.members
+                              .filter((m: Member) => m.type === "adult")
+                              .map((member: Member) => (
+                                <div key={member.id} className="flex items-center gap-3 text-sm" data-testid={`member-adult-${member.id}`}>
+                                  <div className="rounded-full bg-primary/10 p-1.5">
+                                    <User className="h-3 w-3 text-primary" />
+                                  </div>
+                                  <div>
+                                    <span className="font-medium">{member.name}</span>
+                                    <span className="text-muted-foreground ml-2">Adult, {member.age} years</span>
+                                  </div>
+                                </div>
+                              ))}
+                            {selectedPurchase.members
+                              .filter((m: Member) => m.type === "kid")
+                              .map((member: Member) => (
+                                <div key={member.id} className="flex items-center gap-3 text-sm" data-testid={`member-kid-${member.id}`}>
+                                  <div className="rounded-full bg-accent/50 p-1.5">
+                                    <Baby className="h-3 w-3 text-accent-foreground" />
+                                  </div>
+                                  <div>
+                                    <span className="font-medium">{member.name}</span>
+                                    <span className="text-muted-foreground ml-2">Kid, {member.age} years</span>
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                        <Separator />
+                      </>
+                    )}
+
+                    {/* Services Section */}
                     {selectedPurchase.packageSnapshot.services.map((service, index) => {
                       const available = getAvailableQuantity(service, selectedPurchase.redemptions || []);
                       const isDisabled = available <= 0;
