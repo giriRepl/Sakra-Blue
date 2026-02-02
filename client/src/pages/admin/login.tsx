@@ -1,3 +1,4 @@
+import React from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
 import { Mail, Lock, Loader2, ArrowLeft } from "lucide-react";
@@ -22,7 +23,14 @@ const loginSchema = z.object({
 export default function AdminLoginPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const { login } = useAdminAuth();
+  const { login, admin } = useAdminAuth();
+
+  // Navigate when admin state is set (after successful login)
+  React.useEffect(() => {
+    if (admin) {
+      navigate("/admin");
+    }
+  }, [admin, navigate]);
 
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
@@ -43,7 +51,7 @@ export default function AdminLoginPage() {
         title: "Welcome!",
         description: "You have successfully logged in.",
       });
-      navigate("/admin");
+      // Navigation handled by useEffect when admin state updates
     },
     onError: () => {
       toast({
