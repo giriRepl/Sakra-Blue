@@ -435,5 +435,28 @@ export async function registerRoutes(
     }
   });
 
+  // Admin update customer profile
+  app.patch("/api/admin/customers/:id", requireAdminAuth, async (req, res) => {
+    try {
+      const { name, age, location, gender } = req.body;
+      const customerId = req.params.id;
+
+      const customer = await storage.updateCustomerProfile(customerId, {
+        name,
+        age,
+        location,
+        gender,
+      });
+
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+
+      res.json(customer);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update customer profile" });
+    }
+  });
+
   return httpServer;
 }

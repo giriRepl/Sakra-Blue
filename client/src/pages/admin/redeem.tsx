@@ -1,21 +1,34 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Search, CheckCircle, Loader2, Package, Calendar, Phone, User, MapPin } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Search, CheckCircle, Loader2, Package, Calendar, Phone, User, MapPin, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AdminLayout } from "@/components/admin-layout";
 import { LoadingCard, LoadingPage } from "@/components/loading-spinner";
 import { EmptyState } from "@/components/empty-state";
 import { useAdminAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { PurchaseWithDetails, Service, Redemption } from "@shared/schema";
+import type { PurchaseWithDetails, Service, Redemption, Customer } from "@shared/schema";
 import { format, isPast, differenceInDays } from "date-fns";
+
+const customerProfileSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  age: z.coerce.number().min(1, "Age must be positive"),
+  location: z.string().min(1, "Location is required"),
+  gender: z.enum(["male", "female", "other"], { required_error: "Please select gender" }),
+});
 
 interface ServiceToRedeem {
   serviceId: string;
@@ -31,6 +44,18 @@ export default function AdminRedeemPage() {
   const [searchMobile, setSearchMobile] = useState("");
   const [selectedPurchase, setSelectedPurchase] = useState<PurchaseWithDetails | null>(null);
   const [selectedServices, setSelectedServices] = useState<ServiceToRedeem[]>([]);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+
+  const profileForm = useForm<z.infer<typeof customerProfileSchema>>({
+    resolver: zodResolver(customerProfileSchema),
+    defaultValues: {
+      name: "",
+      age: 30,
+      location: "",
+      gender: undefined,
+    },
+  });
 
   const { data: purchases, isLoading: purchasesLoading, refetch } = useQuery<PurchaseWithDetails[]>({
     queryKey: ["/api/admin/purchases", searchMobile],
@@ -63,6 +88,48 @@ export default function AdminRedeemPage() {
       });
     },
   });
+
+  const updateCustomerMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof customerProfileSchema> & { customerId: string }) => {
+      const { customerId, ...profileData } = data;
+      const res = await apiRequest("PATCH", `/api/admin/customers/${customerId}`, profileData);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Profile Updated",
+        description: "Customer profile has been updated successfully.",
+      });
+      setIsEditDialogOpen(false);
+      setEditingCustomer(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/purchases", searchMobile] });
+      refetch();
+    },
+    onError: () => {
+      toast({
+        title: "Update Failed",
+        description: "Failed to update customer profile. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEditCustomer = (customer: Customer) => {
+    setEditingCustomer(customer);
+    profileForm.reset({
+      name: customer.name || "",
+      age: customer.age || 30,
+      location: customer.location || "",
+      gender: (customer.gender as "male" | "female" | "other") || undefined,
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleProfileSubmit = (data: z.infer<typeof customerProfileSchema>) => {
+    if (editingCustomer) {
+      updateCustomerMutation.mutate({ ...data, customerId: editingCustomer.id });
+    }
+  };
 
   const handleSearch = () => {
     if (mobile.length === 10) {
@@ -160,10 +227,21 @@ export default function AdminRedeemPage() {
             ) : purchases && purchases.length > 0 && purchases[0].customer ? (
               <Card data-testid="card-customer-profile">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <User className="h-5 w-5 text-primary" />
-                    Customer Profile
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <User className="h-5 w-5 text-primary" />
+                      Customer Profile
+                    </CardTitle>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEditCustomer(purchases[0].customer!)}
+                      data-testid="button-edit-customer"
+                    >
+                      <Edit className="h-4 w-4 mr-1" />
+                      Edit
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -376,6 +454,105 @@ export default function AdminRedeemPage() {
             description="Enter a customer's mobile number to view their packages and redeem services"
           />
         )}
+
+        {/* Edit Customer Profile Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Customer Profile</DialogTitle>
+              <DialogDescription>
+                Update the customer's personal information
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...profileForm}>
+              <form onSubmit={profileForm.handleSubmit(handleProfileSubmit)} className="space-y-4">
+                <FormField
+                  control={profileForm.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Customer's full name" data-testid="input-customer-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={profileForm.control}
+                  name="age"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Age</FormLabel>
+                      <FormControl>
+                        <Input {...field} type="number" min={1} placeholder="Age" data-testid="input-customer-age" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={profileForm.control}
+                  name="location"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Location</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="City, State" data-testid="input-customer-location" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={profileForm.control}
+                  name="gender"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Gender</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-customer-gender">
+                            <SelectValue placeholder="Select gender" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="male">Male</SelectItem>
+                          <SelectItem value="female">Female</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="flex gap-3 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setIsEditDialogOpen(false)}
+                    data-testid="button-cancel-customer-edit"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="flex-1"
+                    disabled={updateCustomerMutation.isPending}
+                    data-testid="button-save-customer"
+                  >
+                    {updateCustomerMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : null}
+                    Save Changes
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
       </div>
     </AdminLayout>
   );
