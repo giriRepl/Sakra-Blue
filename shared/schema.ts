@@ -25,6 +25,7 @@ export const packages = pgTable("packages", {
   kidsCount: integer("kids_count").notNull().default(0),
   termsAndConditions: text("terms_and_conditions"),
   isActive: boolean("is_active").notNull().default(true),
+  isEnterprise: boolean("is_enterprise").notNull().default(false), // Enterprise packages not shown to customers
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

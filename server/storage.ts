@@ -21,7 +21,7 @@ import {
   type DashboardStats,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, and } from "drizzle-orm";
 
 export interface IStorage {
   // Packages
@@ -68,7 +68,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getActivePackages(): Promise<Package[]> {
-    return db.select().from(packages).where(eq(packages.isActive, true)).orderBy(desc(packages.createdAt));
+    return db.select().from(packages).where(
+      and(eq(packages.isActive, true), eq(packages.isEnterprise, false))
+    ).orderBy(desc(packages.createdAt));
   }
 
   async getPackage(id: string): Promise<Package | undefined> {

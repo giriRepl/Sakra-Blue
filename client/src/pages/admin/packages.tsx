@@ -57,7 +57,14 @@ function PackageCard({ pkg }: PackageCardProps) {
     <Card className={`flex flex-col h-full ${!pkg.isActive ? "opacity-60" : ""}`} data-testid={`card-package-${pkg.id}`}>
       <CardHeader className="pb-4">
         <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-lg">{pkg.title}</CardTitle>
+          <div className="flex flex-col gap-1">
+            <CardTitle className="text-lg">{pkg.title}</CardTitle>
+            {pkg.isEnterprise && (
+              <Badge variant="outline" className="w-fit text-xs" data-testid={`badge-enterprise-${pkg.id}`}>
+                Enterprise
+              </Badge>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <Switch
               checked={pkg.isActive}

@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Switch } from "@/components/ui/switch";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Separator } from "@/components/ui/separator";
 import { AdminLayout } from "@/components/admin-layout";
 import { LoadingPage } from "@/components/loading-spinner";
@@ -35,6 +36,7 @@ const packageFormSchema = z.object({
   kidsCount: z.number().min(0, "Kids count cannot be negative"),
   termsAndConditions: z.string().optional(),
   isActive: z.boolean().default(true),
+  isEnterprise: z.boolean().default(false),
 });
 
 type PackageFormData = z.infer<typeof packageFormSchema>;
@@ -65,6 +67,7 @@ export default function PackageFormPage() {
       kidsCount: 0,
       termsAndConditions: "",
       isActive: true,
+      isEnterprise: false,
     },
   });
 
@@ -90,6 +93,7 @@ export default function PackageFormPage() {
         kidsCount: existingPackage.kidsCount,
         termsAndConditions: existingPackage.termsAndConditions || "",
         isActive: existingPackage.isActive,
+        isEnterprise: existingPackage.isEnterprise || false,
       });
     }
   }, [existingPackage, form]);
@@ -309,6 +313,28 @@ export default function PackageFormPage() {
                     )}
                   />
                 </div>
+                <Separator className="my-4" />
+                <FormField
+                  control={form.control}
+                  name="isEnterprise"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">Enterprise Package</FormLabel>
+                        <FormDescription>
+                          Enterprise packages are not visible to customers on the website
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          data-testid="switch-enterprise"
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
               </CardContent>
             </Card>
 
