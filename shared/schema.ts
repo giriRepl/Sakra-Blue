@@ -150,6 +150,7 @@ export const members = pgTable("members", {
   name: text("name").notNull(),
   age: integer("age").notNull(),
   type: text("type").notNull(), // 'adult' or 'kid'
+  relation: text("relation"), // Relation to account holder (e.g., Spouse, Son, Self)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -172,6 +173,7 @@ export type InsertMember = {
   name: string;
   age: number;
   type: string;
+  relation?: string;
 };
 
 // Purchase with full details for API responses

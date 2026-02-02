@@ -19,6 +19,7 @@ import AdminPackagesPage from "@/pages/admin/packages";
 import PackageFormPage from "@/pages/admin/package-form";
 import PackageViewPage from "@/pages/admin/package-view";
 import AdminRedeemPage from "@/pages/admin/redeem";
+import AdminAssignPage from "@/pages/admin/assign";
 
 function Router() {
   return (
@@ -38,6 +39,7 @@ function Router() {
       <Route path="/admin/packages/:id" component={PackageViewPage} />
       <Route path="/admin/packages/:id/edit" component={PackageFormPage} />
       <Route path="/admin/redeem" component={AdminRedeemPage} />
+      <Route path="/admin/assign" component={AdminAssignPage} />
 
       {/* Fallback */}
       <Route component={NotFound} />

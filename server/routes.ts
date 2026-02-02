@@ -458,5 +458,91 @@ export async function registerRoutes(
     }
   });
 
+  // Admin assign package to customer
+  app.post("/api/admin/assign-package", requireAdminAuth, async (req, res) => {
+    try {
+      const { packageId, mobile, holder, members } = req.body;
+
+      if (!packageId || !mobile || !holder) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      // Validate mobile
+      if (!/^[0-9]{10}$/.test(mobile)) {
+        return res.status(400).json({ error: "Invalid mobile number" });
+      }
+
+      // Get package
+      const pkg = await storage.getPackage(packageId);
+      if (!pkg) {
+        return res.status(404).json({ error: "Package not found" });
+      }
+
+      // Get or create customer
+      let customer = await storage.getCustomerByMobile(mobile);
+      if (!customer) {
+        customer = await storage.createCustomer({
+          mobile,
+          name: holder.name,
+          age: holder.age,
+          location: holder.location,
+          gender: holder.gender,
+        });
+      } else {
+        // Update customer with holder details
+        customer = await storage.updateCustomerProfile(customer.id, {
+          name: holder.name,
+          age: holder.age,
+          location: holder.location,
+          gender: holder.gender,
+        });
+      }
+
+      if (!customer) {
+        return res.status(500).json({ error: "Failed to create/update customer" });
+      }
+
+      // Create purchase
+      const expiryDate = addMonths(new Date(), pkg.validityMonths);
+      const purchase = await storage.createPurchase({
+        customerId: customer.id,
+        packageId: pkg.id,
+        packageSnapshot: pkg,
+        purchaseDate: new Date(),
+        expiryDate,
+        amountPaid: pkg.price,
+      });
+
+      // Create members if provided
+      if (members && Array.isArray(members) && members.length > 0) {
+        const membersList = members.map((m: any) => ({
+          name: m.name,
+          age: m.age,
+          type: m.type as "adult" | "kid",
+          relation: m.relation,
+        }));
+        await storage.createMembersForPurchase(purchase.id, membersList);
+      }
+
+      // Add account holder as a member too (primary)
+      await storage.createMember({
+        purchaseId: purchase.id,
+        name: holder.name,
+        age: holder.age,
+        type: "adult",
+        relation: "Self",
+      });
+
+      res.json({ 
+        success: true, 
+        purchase,
+        message: "Package assigned successfully" 
+      });
+    } catch (error) {
+      console.error("Error assigning package:", error);
+      res.status(500).json({ error: "Failed to assign package" });
+    }
+  });
+
   return httpServer;
 }

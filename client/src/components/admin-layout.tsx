@@ -1,5 +1,5 @@
 import { useLocation, Link } from "wouter";
-import { Home, Package, Gift, LogOut } from "lucide-react";
+import { Home, Package, Gift, LogOut, UserPlus } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -23,6 +23,7 @@ interface AdminLayoutProps {
 const menuItems = [
   { title: "Home", href: "/admin", icon: Home },
   { title: "Packages", href: "/admin/packages", icon: Package },
+  { title: "Assign Package", href: "/admin/assign", icon: UserPlus },
   { title: "Redeem Services", href: "/admin/redeem", icon: Gift },
 ];
 
