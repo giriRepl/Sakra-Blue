@@ -1,4 +1,4 @@
-import React from "react";
+import { useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
 import { Mail, Lock, Loader2, ArrowLeft } from "lucide-react";
@@ -26,7 +26,7 @@ export default function AdminLoginPage() {
   const { login, admin } = useAdminAuth();
 
   // Navigate when admin state is set (after successful login)
-  React.useEffect(() => {
+  useEffect(() => {
     if (admin) {
       navigate("/admin");
     }
