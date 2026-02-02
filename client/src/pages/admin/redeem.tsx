@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Search, CheckCircle, Loader2, Package, Calendar, Phone, User, MapPin, Edit, Baby, Users } from "lucide-react";
+import { Search, CheckCircle, Loader2, Package, Calendar, Phone, User, MapPin, Edit, Baby, Users, KeyRound } from "lucide-react";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,18 @@ export default function AdminRedeemPage() {
   const [selectedServices, setSelectedServices] = useState<ServiceToRedeem[]>([]);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  
+  // OTP state for redemption verification
+  const [isOtpDialogOpen, setIsOtpDialogOpen] = useState(false);
+  const [generatedOtp, setGeneratedOtp] = useState("");
+  const [enteredOtp, setEnteredOtp] = useState("");
+  const [otpError, setOtpError] = useState("");
+
+  const generateOtp = useCallback(() => {
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+    setGeneratedOtp(otp);
+    return otp;
+  }, []);
 
   const profileForm = useForm<z.infer<typeof customerProfileSchema>>({
     resolver: zodResolver(customerProfileSchema),
@@ -160,12 +173,36 @@ export default function AdminRedeemPage() {
     return service.quantity - used;
   };
 
-  const handleRedeem = () => {
+  const handleRedeemClick = () => {
+    if (selectedPurchase && selectedServices.length > 0) {
+      generateOtp();
+      setEnteredOtp("");
+      setOtpError("");
+      setIsOtpDialogOpen(true);
+    }
+  };
+
+  const handleOtpVerify = () => {
+    if (enteredOtp !== generatedOtp) {
+      setOtpError("Invalid OTP. Please try again.");
+      return;
+    }
+    
     if (selectedPurchase && selectedServices.length > 0) {
       redeemMutation.mutate({
         purchaseId: selectedPurchase.id,
         services: selectedServices,
       });
+      setIsOtpDialogOpen(false);
+    }
+  };
+
+  const handleOtpDialogClose = (open: boolean) => {
+    if (!open) {
+      setIsOtpDialogOpen(false);
+      setGeneratedOtp("");
+      setEnteredOtp("");
+      setOtpError("");
     }
   };
 
@@ -464,7 +501,7 @@ export default function AdminRedeemPage() {
                     <Button
                       className="w-full"
                       disabled={selectedServices.length === 0 || redeemMutation.isPending}
-                      onClick={handleRedeem}
+                      onClick={handleRedeemClick}
                       data-testid="button-redeem"
                     >
                       {redeemMutation.isPending ? (
@@ -596,6 +633,93 @@ export default function AdminRedeemPage() {
                 </div>
               </form>
             </Form>
+          </DialogContent>
+        </Dialog>
+
+        {/* OTP Verification Dialog */}
+        <Dialog open={isOtpDialogOpen} onOpenChange={handleOtpDialogClose}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <KeyRound className="h-5 w-5 text-primary" />
+                Verify Redemption OTP
+              </DialogTitle>
+              <DialogDescription>
+                Share this OTP with the customer to confirm the service redemption.
+                {selectedPurchase && (
+                  <span className="block mt-1 text-foreground font-medium">
+                    Redeeming {selectedServices.length} service{selectedServices.length !== 1 ? "s" : ""} from {selectedPurchase.packageSnapshot.title}
+                  </span>
+                )}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-6 py-4">
+              {/* Display Generated OTP */}
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground mb-2">Generated OTP (share with customer)</p>
+                <div className="bg-primary/10 rounded-lg p-4 inline-block" data-testid="display-generated-otp">
+                  <span className="text-4xl font-bold tracking-[0.5em] text-primary">{generatedOtp}</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  SMS integration coming soon
+                </p>
+              </div>
+
+              <Separator />
+
+              {/* OTP Input */}
+              <div className="space-y-3">
+                <p className="text-sm text-center font-medium">Enter OTP to confirm redemption</p>
+                <div className="flex justify-center">
+                  <InputOTP
+                    maxLength={4}
+                    value={enteredOtp}
+                    onChange={(value) => {
+                      setEnteredOtp(value);
+                      setOtpError("");
+                    }}
+                    data-testid="input-redemption-otp"
+                  >
+                    <InputOTPGroup>
+                      <InputOTPSlot index={0} />
+                      <InputOTPSlot index={1} />
+                      <InputOTPSlot index={2} />
+                      <InputOTPSlot index={3} />
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
+                {otpError && (
+                  <p className="text-sm text-destructive text-center" data-testid="text-otp-error">{otpError}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={() => handleOtpDialogClose(false)}
+                data-testid="button-cancel-otp"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="flex-1"
+                disabled={enteredOtp.length !== 4 || redeemMutation.isPending}
+                onClick={handleOtpVerify}
+                data-testid="button-verify-otp"
+              >
+                {redeemMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                )}
+                Confirm Redemption
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
