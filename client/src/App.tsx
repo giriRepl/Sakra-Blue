@@ -20,6 +20,7 @@ import PackageFormPage from "@/pages/admin/package-form";
 import PackageViewPage from "@/pages/admin/package-view";
 import AdminRedeemPage from "@/pages/admin/redeem";
 import AdminAssignPage from "@/pages/admin/assign";
+import SuperAdminPage from "@/pages/superadmin";
 
 function Router() {
   return (
@@ -40,6 +41,9 @@ function Router() {
       <Route path="/admin/packages/:id/edit" component={PackageFormPage} />
       <Route path="/admin/redeem" component={AdminRedeemPage} />
       <Route path="/admin/assign" component={AdminAssignPage} />
+
+      {/* Super Admin Routes */}
+      <Route path="/superadmin" component={SuperAdminPage} />
 
       {/* Fallback */}
       <Route component={NotFound} />
