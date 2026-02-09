@@ -19,7 +19,7 @@ import { EmptyState } from "@/components/empty-state";
 import { useAdminAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Package as PackageType } from "@shared/schema";
+import { getPackagePricingTiers, type Package as PackageType } from "@shared/schema";
 
 type Step = "package" | "mobile" | "otp" | "holder" | "members" | "confirm";
 
@@ -50,6 +50,7 @@ export default function AdminAssignPage() {
 
   const [step, setStep] = useState<Step>("package");
   const [selectedPackage, setSelectedPackage] = useState<PackageType | null>(null);
+  const [selectedTierIndex, setSelectedTierIndex] = useState(0);
   const [mobile, setMobile] = useState("");
   const [generatedOtp, setGeneratedOtp] = useState("");
   const [enteredOtp, setEnteredOtp] = useState("");
@@ -94,6 +95,7 @@ export default function AdminAssignPage() {
       mobile: string;
       holder: HolderData;
       members: MemberWithType[];
+      selectedTierIndex?: number;
     }) => {
       const res = await apiRequest("POST", "/api/admin/assign-package", data);
       return res.json();
@@ -118,6 +120,7 @@ export default function AdminAssignPage() {
   const resetFlow = () => {
     setStep("package");
     setSelectedPackage(null);
+    setSelectedTierIndex(0);
     setMobile("");
     setGeneratedOtp("");
     setEnteredOtp("");
@@ -133,6 +136,7 @@ export default function AdminAssignPage() {
 
   const handlePackageSelect = (pkg: PackageType) => {
     setSelectedPackage(pkg);
+    setSelectedTierIndex(0);
     setStep("mobile");
   };
 
@@ -158,14 +162,18 @@ export default function AdminAssignPage() {
     
     if (!selectedPackage) return;
     
-    const totalMembers = (selectedPackage.adultsCount - 1) + selectedPackage.kidsCount;
+    const tiers = getPackagePricingTiers(selectedPackage);
+    const tier = tiers[selectedTierIndex] || tiers[0];
+    const adultsCount = tier?.adultsCount || selectedPackage.adultsCount;
+    const kidsCount = tier?.kidsCount || selectedPackage.kidsCount;
+    const totalMembers = (adultsCount - 1) + kidsCount;
     
     if (totalMembers > 0) {
       const membersList: MemberWithType[] = [];
-      for (let i = 0; i < selectedPackage.adultsCount - 1; i++) {
+      for (let i = 0; i < adultsCount - 1; i++) {
         membersList.push({ name: "", age: 30, relation: "", type: "adult" });
       }
-      for (let i = 0; i < selectedPackage.kidsCount; i++) {
+      for (let i = 0; i < kidsCount; i++) {
         membersList.push({ name: "", age: 10, relation: "", type: "kid" });
       }
       setMembers(membersList);
@@ -218,6 +226,7 @@ export default function AdminAssignPage() {
       mobile,
       holder: holderData,
       members,
+      selectedTierIndex,
     });
   };
 
@@ -296,7 +305,12 @@ export default function AdminAssignPage() {
               <LoadingCard />
             ) : activePackages.length > 0 ? (
               <div className="grid gap-4">
-                {activePackages.map((pkg) => (
+                {activePackages.map((pkg) => {
+                  const tiers = getPackagePricingTiers(pkg);
+                  const lowestPrice = tiers.length > 0
+                    ? Math.min(...tiers.map(t => t.price))
+                    : pkg.price;
+                  return (
                   <Card
                     key={pkg.id}
                     className="cursor-pointer hover-elevate"
@@ -311,19 +325,28 @@ export default function AdminAssignPage() {
                             {pkg.isEnterprise && (
                               <Badge variant="outline" className="text-xs">Enterprise</Badge>
                             )}
+                            {tiers.length > 1 && (
+                              <Badge variant="secondary" className="text-xs">{tiers.length} tiers</Badge>
+                            )}
                           </div>
                           <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
                             {pkg.description}
                           </p>
-                          <div className="flex items-center gap-4 mt-3 text-sm">
-                            <span className="flex items-center gap-1">
-                              <User className="h-3.5 w-3.5" />
-                              {pkg.adultsCount} Adults
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Baby className="h-3.5 w-3.5" />
-                              {pkg.kidsCount} Kids
-                            </span>
+                          <div className="flex items-center gap-4 mt-3 text-sm flex-wrap">
+                            {tiers.length <= 1 ? (
+                              <>
+                                <span className="flex items-center gap-1">
+                                  <User className="h-3.5 w-3.5" />
+                                  {tiers[0]?.adultsCount || pkg.adultsCount} Adults
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Baby className="h-3.5 w-3.5" />
+                                  {tiers[0]?.kidsCount || pkg.kidsCount} Kids
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-muted-foreground">Multiple coverage options</span>
+                            )}
                             <span className="flex items-center gap-1">
                               <PackageIcon className="h-3.5 w-3.5" />
                               {pkg.services.length} Services
@@ -331,13 +354,17 @@ export default function AdminAssignPage() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-lg font-bold text-primary">₹{pkg.price.toLocaleString()}</p>
+                          {tiers.length > 1 && (
+                            <p className="text-xs text-muted-foreground">Starts at</p>
+                          )}
+                          <p className="text-lg font-bold text-primary">₹{lowestPrice.toLocaleString()}</p>
                           <p className="text-xs text-muted-foreground">{pkg.validityMonths} months</p>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <EmptyState
@@ -362,12 +389,49 @@ export default function AdminAssignPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {selectedPackage && (
-                <div className="p-3 rounded-lg bg-muted/50 mb-4">
-                  <p className="text-sm font-medium">{selectedPackage.title}</p>
-                  <p className="text-xs text-muted-foreground">₹{selectedPackage.price.toLocaleString()}</p>
-                </div>
-              )}
+              {selectedPackage && (() => {
+                const tiers = getPackagePricingTiers(selectedPackage);
+                const currentTier = tiers[selectedTierIndex] || tiers[0];
+                return (
+                  <div className="space-y-3 mb-4">
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <p className="text-sm font-medium">{selectedPackage.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {currentTier.adultsCount} Adults, {currentTier.kidsCount} Kids - ₹{currentTier.price.toLocaleString()}
+                      </p>
+                    </div>
+                    {tiers.length > 1 && (
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">Select tier:</p>
+                        {tiers.map((tier, index) => (
+                          <div
+                            key={index}
+                            className={`flex items-center justify-between p-3 rounded-md border cursor-pointer transition-colors ${
+                              selectedTierIndex === index
+                                ? "border-primary bg-primary/5"
+                                : "hover-elevate"
+                            }`}
+                            onClick={() => setSelectedTierIndex(index)}
+                            data-testid={`assign-tier-select-${index}`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${
+                                selectedTierIndex === index ? "border-primary" : "border-muted-foreground"
+                              }`}>
+                                {selectedTierIndex === index && (
+                                  <div className="h-2 w-2 rounded-full bg-primary" />
+                                )}
+                              </div>
+                              <span className="text-sm">{tier.adultsCount} Adults, {tier.kidsCount} Kids</span>
+                            </div>
+                            <span className="font-medium">₹{tier.price.toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">+91</span>
                 <Input
@@ -633,16 +697,23 @@ export default function AdminAssignPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Package Info */}
-              <div>
-                <h4 className="text-sm font-medium text-muted-foreground mb-2">Package</h4>
-                <div className="p-3 rounded-lg border">
-                  <p className="font-semibold">{selectedPackage.title}</p>
-                  <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                    <span>₹{selectedPackage.price.toLocaleString()}</span>
-                    <span>{selectedPackage.validityMonths} months validity</span>
+              {(() => {
+                const tiers = getPackagePricingTiers(selectedPackage);
+                const tier = tiers[selectedTierIndex] || tiers[0];
+                return (
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-2">Package</h4>
+                    <div className="p-3 rounded-lg border">
+                      <p className="font-semibold">{selectedPackage.title}</p>
+                      <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground flex-wrap">
+                        <span>₹{tier.price.toLocaleString()}</span>
+                        <span>{tier.adultsCount} Adults, {tier.kidsCount} Kids</span>
+                        <span>{selectedPackage.validityMonths} months validity</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Mobile */}
               <div>

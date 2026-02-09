@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
-import { ArrowLeft, Plus, Trash2, Loader2, Save, Hash, Percent, Infinity } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Loader2, Save, Hash, Percent, Infinity, Users } from "lucide-react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -18,7 +18,7 @@ import { LoadingPage } from "@/components/loading-spinner";
 import { useAdminAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Package } from "@shared/schema";
+import { getPackagePricingTiers, type Package } from "@shared/schema";
 
 const serviceSchema = z.object({
   id: z.string(),
@@ -30,14 +30,18 @@ const serviceSchema = z.object({
   percentage: z.number().min(0).max(100).optional(),
 });
 
+const pricingTierFormSchema = z.object({
+  adultsCount: z.number().min(0, "Adults count cannot be negative"),
+  kidsCount: z.number().min(0, "Kids count cannot be negative"),
+  price: z.number().min(1, "Price must be at least ₹1"),
+});
+
 const packageFormSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().min(1, "Description is required"),
   services: z.array(serviceSchema).min(1, "At least one service is required"),
   validityMonths: z.number().min(1, "Validity must be at least 1 month"),
-  price: z.number().min(1, "Price must be at least ₹1"),
-  adultsCount: z.number().min(0, "Adults count cannot be negative"),
-  kidsCount: z.number().min(0, "Kids count cannot be negative"),
+  pricingTiers: z.array(pricingTierFormSchema).min(1, "At least one pricing tier is required"),
   termsAndConditions: z.string().optional(),
   isActive: z.boolean().default(true),
   isEnterprise: z.boolean().default(false),
@@ -69,18 +73,21 @@ export default function PackageFormPage() {
       description: "",
       services: [{ id: generateServiceId(), name: "", description: "", type: "quantity" as const, quantity: 1, isUnlimited: false, percentage: undefined }],
       validityMonths: 12,
-      price: 0,
-      adultsCount: 1,
-      kidsCount: 0,
+      pricingTiers: [{ adultsCount: 1, kidsCount: 0, price: 0 }],
       termsAndConditions: "",
       isActive: true,
       isEnterprise: false,
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields: serviceFields, append: appendService, remove: removeService } = useFieldArray({
     control: form.control,
     name: "services",
+  });
+
+  const { fields: tierFields, append: appendTier, remove: removeTier } = useFieldArray({
+    control: form.control,
+    name: "pricingTiers",
   });
 
   const { data: existingPackage, isLoading: packageLoading } = useQuery<Package>({
@@ -90,6 +97,7 @@ export default function PackageFormPage() {
 
   useEffect(() => {
     if (existingPackage) {
+      const tiers = getPackagePricingTiers(existingPackage);
       form.reset({
         title: isClone ? `${existingPackage.title} (Copy)` : existingPackage.title,
         description: existingPackage.description,
@@ -101,9 +109,7 @@ export default function PackageFormPage() {
           percentage: s.percentage,
         })),
         validityMonths: existingPackage.validityMonths,
-        price: existingPackage.price,
-        adultsCount: existingPackage.adultsCount,
-        kidsCount: existingPackage.kidsCount,
+        pricingTiers: tiers.map(t => ({ adultsCount: t.adultsCount, kidsCount: t.kidsCount, price: t.price })),
         termsAndConditions: existingPackage.termsAndConditions || "",
         isActive: true,
         isEnterprise: existingPackage.isEnterprise || false,
@@ -236,97 +242,26 @@ export default function PackageFormPage() {
                     </FormItem>
                   )}
                 />
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="price"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Price (in Rupees)</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                              ₹
-                            </span>
-                            <Input
-                              type="number"
-                              {...field}
-                              onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                              placeholder="1000"
-                              className="h-12 pl-8"
-                              data-testid="input-price"
-                            />
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="validityMonths"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Validity (months)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            {...field}
-                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                            placeholder="12"
-                            className="h-12"
-                            data-testid="input-validity"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="adultsCount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Number of Adults Covered</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            {...field}
-                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                            min={0}
-                            placeholder="1"
-                            className="h-12"
-                            data-testid="input-adults"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="kidsCount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Number of Kids Covered</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            {...field}
-                            onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                            min={0}
-                            placeholder="0"
-                            className="h-12"
-                            data-testid="input-kids"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                <FormField
+                  control={form.control}
+                  name="validityMonths"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Validity (months)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          {...field}
+                          onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                          placeholder="12"
+                          className="h-12"
+                          data-testid="input-validity"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <Separator className="my-4" />
                 <FormField
                   control={form.control}
@@ -352,6 +287,124 @@ export default function PackageFormPage() {
               </CardContent>
             </Card>
 
+            {/* Pricing Tiers */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Pricing
+                </CardTitle>
+                <CardDescription>
+                  Set up pricing based on number of people covered. Add multiple tiers for different group sizes.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {tierFields.map((field, index) => (
+                  <div key={field.id} className="space-y-3">
+                    {index > 0 && <Separator />}
+                    <div className="flex items-start gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-sm font-medium text-muted-foreground">Tier {index + 1}</span>
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-3">
+                          <FormField
+                            control={form.control}
+                            name={`pricingTiers.${index}.adultsCount`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Adults</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    {...field}
+                                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                                    min={0}
+                                    placeholder="1"
+                                    className="h-12"
+                                    data-testid={`input-tier-adults-${index}`}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`pricingTiers.${index}.kidsCount`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Kids</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    {...field}
+                                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                                    min={0}
+                                    placeholder="0"
+                                    className="h-12"
+                                    data-testid={`input-tier-kids-${index}`}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`pricingTiers.${index}.price`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Price (₹)</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                                      ₹
+                                    </span>
+                                    <Input
+                                      type="number"
+                                      {...field}
+                                      onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                                      placeholder="1000"
+                                      className="h-12 pl-8"
+                                      data-testid={`input-tier-price-${index}`}
+                                    />
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </div>
+                      {tierFields.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="mt-8"
+                          onClick={() => removeTier(index)}
+                          data-testid={`button-remove-tier-${index}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => appendTier({ adultsCount: 1, kidsCount: 0, price: 0 })}
+                  data-testid="button-add-tier"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Pricing Tier
+                </Button>
+              </CardContent>
+            </Card>
+
             {/* Services */}
             <Card>
               <CardHeader>
@@ -361,7 +414,7 @@ export default function PackageFormPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {fields.map((field, index) => {
+                {serviceFields.map((field, index) => {
                   const serviceType = form.watch(`services.${index}.type`);
                   const isUnlimited = form.watch(`services.${index}.isUnlimited`);
                   return (
@@ -517,13 +570,13 @@ export default function PackageFormPage() {
                             )}
                           />
                         </div>
-                        {fields.length > 1 && (
+                        {serviceFields.length > 1 && (
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
                             className="mt-8"
-                            onClick={() => remove(index)}
+                            onClick={() => removeService(index)}
                             data-testid={`button-remove-service-${index}`}
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
@@ -538,7 +591,7 @@ export default function PackageFormPage() {
                   variant="outline"
                   className="w-full"
                   onClick={() =>
-                    append({ id: generateServiceId(), name: "", description: "", type: "quantity", quantity: 1, isUnlimited: false, percentage: undefined })
+                    appendService({ id: generateServiceId(), name: "", description: "", type: "quantity", quantity: 1, isUnlimited: false, percentage: undefined })
                   }
                   data-testid="button-add-service"
                 >

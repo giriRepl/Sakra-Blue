@@ -17,7 +17,7 @@ import { LoadingPage } from "@/components/loading-spinner";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { Package } from "@shared/schema";
+import { getPackagePricingTiers, type Package } from "@shared/schema";
 
 type Step = "mobile" | "otp" | "payment" | "members" | "profile" | "success";
 
@@ -100,6 +100,7 @@ export default function PurchaseFlowPage() {
   const [mobile, setMobile] = useState("");
   const [generatedOtp, setGeneratedOtp] = useState("");
   const [purchaseId, setPurchaseId] = useState<string | null>(null);
+  const [selectedTierIndex, setSelectedTierIndex] = useState(0);
 
   const stepIndex = { mobile: 0, otp: 1, payment: 2, members: 3, profile: 4, success: 5 }[step];
 
@@ -183,15 +184,17 @@ export default function PurchaseFlowPage() {
       const res = await apiRequest("POST", "/api/purchases", {
         mobile,
         packageId,
+        selectedTierIndex,
       });
       return res.json();
     },
     onSuccess: (data) => {
       setPurchaseId(data.id);
-      // Reset members form with correct counts when entering members step
+      const tiers = pkg ? getPackagePricingTiers(pkg) : [];
+      const tier = tiers[selectedTierIndex] || tiers[0];
       membersForm.reset({
-        adults: Array.from({ length: pkg?.adultsCount || 0 }, () => ({ name: "", age: 18, type: "adult" as const })),
-        kids: Array.from({ length: pkg?.kidsCount || 0 }, () => ({ name: "", age: 5, type: "kid" as const })),
+        adults: Array.from({ length: tier?.adultsCount || 0 }, () => ({ name: "", age: 18, type: "adult" as const })),
+        kids: Array.from({ length: tier?.kidsCount || 0 }, () => ({ name: "", age: 5, type: "kid" as const })),
       });
       setStep("members");
     },
@@ -461,56 +464,102 @@ export default function PurchaseFlowPage() {
         )}
 
         {/* Payment Step */}
-        {step === "payment" && (
-          <div className="space-y-6" data-testid="step-payment">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5 text-primary" />
-                  Payment
-                </CardTitle>
-                <CardDescription>
-                  Complete your purchase
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="rounded-lg border bg-muted/30 p-4">
-                  <h4 className="font-medium mb-2">{pkg.title}</h4>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    {pkg.services.length} services • {pkg.validityMonths} months validity • {pkg.adultsCount} Adults, {pkg.kidsCount} Kids
-                  </p>
-                  <Separator className="my-3" />
+        {step === "payment" && (() => {
+          const tiers = getPackagePricingTiers(pkg);
+          const selectedTier = tiers[selectedTierIndex] || tiers[0];
+          return (
+            <div className="space-y-6" data-testid="step-payment">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CreditCard className="h-5 w-5 text-primary" />
+                    Payment
+                  </CardTitle>
+                  <CardDescription>
+                    {tiers.length > 1 ? "Select your preferred option and complete your purchase" : "Complete your purchase"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="rounded-lg border bg-muted/30 p-4">
+                    <h4 className="font-medium mb-2">{pkg.title}</h4>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      {pkg.services.length} services • {pkg.validityMonths} months validity
+                    </p>
+                  </div>
+
+                  {tiers.length > 1 && (
+                    <div className="space-y-3">
+                      <h4 className="font-medium flex items-center gap-2">
+                        <Users className="h-4 w-4 text-primary" />
+                        Choose your option
+                      </h4>
+                      {tiers.map((tier, index) => (
+                        <div
+                          key={index}
+                          className={`flex items-center justify-between p-4 rounded-md border cursor-pointer transition-colors ${
+                            selectedTierIndex === index
+                              ? "border-primary bg-primary/5"
+                              : "hover-elevate"
+                          }`}
+                          onClick={() => setSelectedTierIndex(index)}
+                          data-testid={`tier-select-${index}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${
+                              selectedTierIndex === index ? "border-primary" : "border-muted-foreground"
+                            }`}>
+                              {selectedTierIndex === index && (
+                                <div className="h-2 w-2 rounded-full bg-primary" />
+                              )}
+                            </div>
+                            <Badge variant="outline" className="gap-1">
+                              {tier.adultsCount} Adults, {tier.kidsCount} Kids
+                            </Badge>
+                          </div>
+                          <span className="text-lg font-bold">{formatPrice(tier.price)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <Separator />
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Total Amount</span>
-                    <span className="text-xl font-bold">{formatPrice(pkg.price)}</span>
+                    <span className="text-xl font-bold">{formatPrice(selectedTier.price)}</span>
                   </div>
-                </div>
+                  <div className="text-sm text-muted-foreground">
+                    {selectedTier.adultsCount} Adults, {selectedTier.kidsCount} Kids covered
+                  </div>
 
-                <div className="rounded-lg border p-4 space-y-4">
-                  <p className="text-sm text-muted-foreground text-center">
-                    This is a demo payment page. Click the button below to simulate a successful payment.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+                  <div className="rounded-lg border p-4 space-y-4">
+                    <p className="text-sm text-muted-foreground text-center">
+                      This is a demo payment page. Click the button below to simulate a successful payment.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
 
-            <Button
-              size="lg"
-              className="w-full h-12"
-              onClick={handlePayment}
-              disabled={purchaseMutation.isPending}
-              data-testid="button-pay"
-            >
-              {purchaseMutation.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              Pay {formatPrice(pkg.price)}
-            </Button>
-          </div>
-        )}
+              <Button
+                size="lg"
+                className="w-full h-12"
+                onClick={handlePayment}
+                disabled={purchaseMutation.isPending}
+                data-testid="button-pay"
+              >
+                {purchaseMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                Pay {formatPrice(selectedTier.price)}
+              </Button>
+            </div>
+          );
+        })()}
 
         {/* Members Step */}
-        {step === "members" && (
+        {step === "members" && (() => {
+          const tiers = getPackagePricingTiers(pkg);
+          const selectedTier = tiers[selectedTierIndex] || tiers[0];
+          return (
           <div className="space-y-6" data-testid="step-members">
             <Card>
               <CardHeader>
@@ -526,14 +575,14 @@ export default function PurchaseFlowPage() {
                 <Form {...membersForm}>
                   <form onSubmit={membersForm.handleSubmit(handleMembersSubmit)} className="space-y-6">
                     {/* Adults Section */}
-                    {pkg.adultsCount > 0 && (
+                    {selectedTier.adultsCount > 0 && (
                       <div className="space-y-4">
                         <div className="flex items-center gap-2">
                           <User className="h-4 w-4 text-primary" />
-                          <h3 className="font-medium">Adults ({pkg.adultsCount})</h3>
+                          <h3 className="font-medium">Adults ({selectedTier.adultsCount})</h3>
                           <Badge variant="secondary" className="text-xs">Age 16+</Badge>
                         </div>
-                        {Array.from({ length: pkg.adultsCount }).map((_, index) => (
+                        {Array.from({ length: selectedTier.adultsCount }).map((_, index) => (
                           <div key={`adult-${index}`} className="rounded-lg border p-4 space-y-4">
                             <p className="text-sm font-medium text-muted-foreground">Adult {index + 1}</p>
                             <div className="grid gap-4 sm:grid-cols-2">
@@ -580,14 +629,14 @@ export default function PurchaseFlowPage() {
                     )}
 
                     {/* Kids Section */}
-                    {pkg.kidsCount > 0 && (
+                    {selectedTier.kidsCount > 0 && (
                       <div className="space-y-4">
                         <div className="flex items-center gap-2">
                           <Baby className="h-4 w-4 text-primary" />
-                          <h3 className="font-medium">Kids ({pkg.kidsCount})</h3>
+                          <h3 className="font-medium">Kids ({selectedTier.kidsCount})</h3>
                           <Badge variant="secondary" className="text-xs">Under 16</Badge>
                         </div>
-                        {Array.from({ length: pkg.kidsCount }).map((_, index) => (
+                        {Array.from({ length: selectedTier.kidsCount }).map((_, index) => (
                           <div key={`kid-${index}`} className="rounded-lg border p-4 space-y-4">
                             <p className="text-sm font-medium text-muted-foreground">Kid {index + 1}</p>
                             <div className="grid gap-4 sm:grid-cols-2">
@@ -652,7 +701,8 @@ export default function PurchaseFlowPage() {
               </CardContent>
             </Card>
           </div>
-        )}
+          );
+        })()}
 
         {/* Profile Step */}
         {step === "profile" && (

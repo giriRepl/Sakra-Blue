@@ -8,7 +8,7 @@ import { LoadingSpinner } from "@/components/loading-spinner";
 import { EmptyState } from "@/components/empty-state";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useCustomerAuth } from "@/lib/auth";
-import type { Package } from "@shared/schema";
+import { getLowestPrice, type Package } from "@shared/schema";
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -195,11 +195,13 @@ export default function LandingPage() {
                   </CardContent>
                   <CardFooter className="flex-col gap-4 pt-4 border-t">
                     <div className="flex w-full items-center justify-between text-sm text-muted-foreground">
-                      <span>{pkg.adultsCount} Adults, {pkg.kidsCount} Kids</span>
                       <span>Valid {pkg.validityMonths} months</span>
                     </div>
-                    <div className="flex w-full items-baseline justify-between">
-                      <span className="text-3xl font-bold">{formatPrice(pkg.price)}</span>
+                    <div className="flex w-full items-baseline justify-between gap-2">
+                      <div>
+                        <span className="text-xs text-muted-foreground">Starts at</span>
+                        <span className="text-3xl font-bold ml-1">{formatPrice(getLowestPrice(pkg))}</span>
+                      </div>
                     </div>
                     <Link href={`/package/${pkg.id}`} className="w-full">
                       <Button className="w-full" data-testid={`button-view-package-${pkg.id}`}>

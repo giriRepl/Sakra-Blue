@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
-import { ArrowLeft, Edit, Clock, Check, Copy } from "lucide-react";
+import { ArrowLeft, Edit, Clock, Check, Copy, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { AdminLayout } from "@/components/admin-layout";
 import { LoadingPage } from "@/components/loading-spinner";
 import { useAdminAuth } from "@/lib/auth";
-import type { Package } from "@shared/schema";
+import { getPackagePricingTiers, getLowestPrice, type Package } from "@shared/schema";
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -100,22 +100,14 @@ export default function PackageViewPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                <div className="grid gap-4 sm:grid-cols-3">
                   <div className="text-center p-4 rounded-lg bg-muted/50">
-                    <p className="text-2xl font-bold">{formatPrice(pkg.price)}</p>
-                    <p className="text-sm text-muted-foreground">Price</p>
+                    <p className="text-2xl font-bold">{formatPrice(getLowestPrice(pkg))}</p>
+                    <p className="text-sm text-muted-foreground">Starting Price</p>
                   </div>
                   <div className="text-center p-4 rounded-lg bg-muted/50">
                     <p className="text-2xl font-bold">{pkg.validityMonths}</p>
                     <p className="text-sm text-muted-foreground">Months Validity</p>
-                  </div>
-                  <div className="text-center p-4 rounded-lg bg-muted/50">
-                    <p className="text-2xl font-bold">{pkg.adultsCount}</p>
-                    <p className="text-sm text-muted-foreground">Adults Covered</p>
-                  </div>
-                  <div className="text-center p-4 rounded-lg bg-muted/50">
-                    <p className="text-2xl font-bold">{pkg.kidsCount}</p>
-                    <p className="text-sm text-muted-foreground">Kids Covered</p>
                   </div>
                   <div className="text-center p-4 rounded-lg bg-muted/50">
                     <p className="text-2xl font-bold">{pkg.services.length}</p>
@@ -157,6 +149,35 @@ export default function PackageViewPage() {
                           )}
                         </div>
                       </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Pricing Tiers */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Pricing Tiers
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {getPackagePricingTiers(pkg).map((tier, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 rounded-md bg-muted/50"
+                      data-testid={`tier-row-${index}`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <span className="text-sm font-medium text-muted-foreground">Tier {index + 1}</span>
+                        <Badge variant="outline" className="gap-1">
+                          {tier.adultsCount} Adults, {tier.kidsCount} Kids
+                        </Badge>
+                      </div>
+                      <span className="text-lg font-bold">{formatPrice(tier.price)}</span>
                     </div>
                   ))}
                 </div>

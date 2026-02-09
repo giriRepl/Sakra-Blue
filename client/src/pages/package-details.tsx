@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { LoadingPage } from "@/components/loading-spinner";
 import { ThemeToggle } from "@/components/theme-toggle";
-import type { Package } from "@shared/schema";
+import { getPackagePricingTiers, getLowestPrice, type Package } from "@shared/schema";
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -51,9 +51,11 @@ export default function PackageDetailsPage() {
     );
   }
 
+  const tiers = getPackagePricingTiers(pkg);
+  const lowestPrice = getLowestPrice(pkg);
+
   return (
     <div className="min-h-screen bg-background" data-testid="page-package-details">
-      {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto max-w-2xl px-4">
           <div className="flex h-16 items-center justify-between gap-4">
@@ -71,7 +73,6 @@ export default function PackageDetailsPage() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="mx-auto max-w-2xl px-4 py-6 pb-32">
         <Card className="overflow-hidden" data-testid="card-package-details">
           <CardHeader className="bg-gradient-to-br from-primary/10 to-accent/5 pb-6">
@@ -86,21 +87,58 @@ export default function PackageDetailsPage() {
                   <Badge variant="outline" className="gap-1">
                     {pkg.services.length} services
                   </Badge>
-                  <Badge variant="outline" className="gap-1">
-                    <Users className="h-3 w-3" />
-                    {pkg.adultsCount} Adults, {pkg.kidsCount} Kids
-                  </Badge>
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-3xl font-bold text-primary">{formatPrice(pkg.price)}</p>
-                <p className="text-sm text-muted-foreground">one-time</p>
+                {tiers.length > 1 ? (
+                  <>
+                    <p className="text-xs text-muted-foreground">Starts at</p>
+                    <p className="text-3xl font-bold text-primary">{formatPrice(lowestPrice)}</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-3xl font-bold text-primary">{formatPrice(lowestPrice)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {tiers[0].adultsCount} Adults, {tiers[0].kidsCount} Kids
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           </CardHeader>
 
           <CardContent className="pt-6">
             <p className="text-muted-foreground mb-6">{pkg.description}</p>
+
+            {/* Pricing Tiers */}
+            {tiers.length > 0 && (
+              <>
+                <Separator className="my-6" />
+                <div>
+                  <h3 className="font-semibold mb-4 flex items-center gap-2">
+                    <Users className="h-4 w-4 text-primary" />
+                    {tiers.length > 1 ? "Available Options" : "Coverage"}
+                  </h3>
+                  <div className="space-y-3">
+                    {tiers.map((tier, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-4 rounded-md border bg-muted/30"
+                        data-testid={`tier-option-${index}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Badge variant="outline" className="gap-1">
+                            <Users className="h-3 w-3" />
+                            {tier.adultsCount} Adults, {tier.kidsCount} Kids
+                          </Badge>
+                        </div>
+                        <span className="text-xl font-bold">{formatPrice(tier.price)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
 
             <Separator className="my-6" />
 
@@ -162,7 +200,6 @@ export default function PackageDetailsPage() {
         </Card>
       </main>
 
-      {/* Sticky CTA */}
       <div className="fixed bottom-0 left-0 right-0 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-4 z-50">
         <div className="mx-auto max-w-2xl">
           <Button
@@ -171,7 +208,7 @@ export default function PackageDetailsPage() {
             onClick={() => navigate(`/buy/${pkg.id}`)}
             data-testid="button-buy-now"
           >
-            Buy Now - {formatPrice(pkg.price)}
+            Buy Now {tiers.length > 1 ? `- Starting at ${formatPrice(lowestPrice)}` : `- ${formatPrice(lowestPrice)}`}
             <ChevronRight className="ml-2 h-4 w-4" />
           </Button>
         </div>

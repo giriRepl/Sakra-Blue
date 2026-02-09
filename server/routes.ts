@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertPackageSchema, insertSmsTemplateSchema, insertCorporateSchema, type Package, type Service } from "@shared/schema";
+import { insertPackageSchema, insertSmsTemplateSchema, insertCorporateSchema, getPackagePricingTiers, type Package, type Service } from "@shared/schema";
 import { z } from "zod";
 import { addMonths } from "date-fns";
 
@@ -164,7 +164,7 @@ export async function registerRoutes(
   // Create purchase
   app.post("/api/purchases", async (req, res) => {
     try {
-      const { mobile, packageId } = req.body;
+      const { mobile, packageId, selectedTierIndex } = req.body;
 
       // Verify OTP was confirmed
       const session = otpStore.get(mobile);
@@ -184,6 +184,14 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Package not found or not available for purchase" });
       }
 
+      // Determine price from selected tier
+      const tiers = getPackagePricingTiers(pkg);
+      const tierIdx = typeof selectedTierIndex === "number" ? selectedTierIndex : 0;
+      if (tierIdx < 0 || tierIdx >= tiers.length) {
+        return res.status(400).json({ error: "Invalid pricing tier selected" });
+      }
+      const selectedTier = tiers[tierIdx];
+
       // Create purchase - calculate expiry from validityMonths
       const expiryDate = addMonths(new Date(), pkg.validityMonths);
       const purchase = await storage.createPurchase({
@@ -192,12 +200,12 @@ export async function registerRoutes(
         packageSnapshot: pkg,
         purchaseDate: new Date(),
         expiryDate,
-        amountPaid: pkg.price,
+        amountPaid: selectedTier.price,
       });
 
       otpStore.delete(mobile);
 
-      res.json(purchase);
+      res.json({ ...purchase, selectedTier });
     } catch (error) {
       res.status(500).json({ error: "Failed to create purchase" });
     }
@@ -342,7 +350,17 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid package data", details: result.error.issues });
       }
 
-      const pkg = await storage.createPackage(result.data);
+      // Sync legacy fields from pricing tiers for backward compat
+      const data = { ...result.data } as any;
+      if (data.pricingTiers && Array.isArray(data.pricingTiers) && data.pricingTiers.length > 0) {
+        const tiers = data.pricingTiers as { adultsCount: number; kidsCount: number; price: number }[];
+        const lowestTier = tiers.reduce((min, t) => t.price < min.price ? t : min, tiers[0]);
+        data.price = lowestTier.price;
+        data.adultsCount = lowestTier.adultsCount;
+        data.kidsCount = lowestTier.kidsCount;
+      }
+
+      const pkg = await storage.createPackage(data);
       res.json(pkg);
     } catch (error: any) {
       console.error("Failed to create package:", error?.message || error);
@@ -369,7 +387,17 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid package data", details: result.error });
       }
 
-      const pkg = await storage.updatePackage(req.params.id, result.data);
+      // Sync legacy fields from pricing tiers for backward compat
+      const data = { ...result.data } as any;
+      if (data.pricingTiers && Array.isArray(data.pricingTiers) && data.pricingTiers.length > 0) {
+        const tiers = data.pricingTiers as { adultsCount: number; kidsCount: number; price: number }[];
+        const lowestTier = tiers.reduce((min, t) => t.price < min.price ? t : min, tiers[0]);
+        data.price = lowestTier.price;
+        data.adultsCount = lowestTier.adultsCount;
+        data.kidsCount = lowestTier.kidsCount;
+      }
+
+      const pkg = await storage.updatePackage(req.params.id, data);
       res.json(pkg);
     } catch (error) {
       res.status(500).json({ error: "Failed to update package" });
@@ -507,7 +535,7 @@ export async function registerRoutes(
   // Admin assign package to customer
   app.post("/api/admin/assign-package", requireAdminAuth, async (req, res) => {
     try {
-      const { packageId, mobile, holder, members } = req.body;
+      const { packageId, mobile, holder, members, selectedTierIndex } = req.body;
 
       if (!packageId || !mobile || !holder) {
         return res.status(400).json({ error: "Missing required fields" });
@@ -548,6 +576,11 @@ export async function registerRoutes(
         return res.status(500).json({ error: "Failed to create/update customer" });
       }
 
+      // Determine price from selected tier
+      const tiers = getPackagePricingTiers(pkg);
+      const tierIdx = typeof selectedTierIndex === "number" ? selectedTierIndex : 0;
+      const selectedTier = tiers[Math.min(tierIdx, tiers.length - 1)];
+
       // Create purchase
       const expiryDate = addMonths(new Date(), pkg.validityMonths);
       const purchase = await storage.createPurchase({
@@ -556,7 +589,7 @@ export async function registerRoutes(
         packageSnapshot: pkg,
         purchaseDate: new Date(),
         expiryDate,
-        amountPaid: pkg.price,
+        amountPaid: selectedTier.price,
       });
 
       // Create members if provided

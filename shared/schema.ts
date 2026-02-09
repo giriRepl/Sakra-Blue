@@ -18,6 +18,29 @@ export const serviceSchema = z.object({
 
 export type Service = z.infer<typeof serviceSchema>;
 
+// Pricing tier schema - maps number of people to a price
+export const pricingTierSchema = z.object({
+  adultsCount: z.number().min(0),
+  kidsCount: z.number().min(0),
+  price: z.number().min(1),
+});
+
+export type PricingTier = z.infer<typeof pricingTierSchema>;
+
+// Helper to get pricing tiers from a package (backward compat)
+export function getPackagePricingTiers(pkg: { pricingTiers?: PricingTier[]; price: number; adultsCount: number; kidsCount: number }): PricingTier[] {
+  if (pkg.pricingTiers && pkg.pricingTiers.length > 0) {
+    return pkg.pricingTiers;
+  }
+  return [{ adultsCount: pkg.adultsCount, kidsCount: pkg.kidsCount, price: pkg.price }];
+}
+
+// Helper to get lowest price from a package
+export function getLowestPrice(pkg: { pricingTiers?: PricingTier[]; price: number; adultsCount: number; kidsCount: number }): number {
+  const tiers = getPackagePricingTiers(pkg);
+  return Math.min(...tiers.map(t => t.price));
+}
+
 // Packages table - health service bundles
 export const packages = pgTable("packages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -25,9 +48,10 @@ export const packages = pgTable("packages", {
   description: text("description").notNull(),
   services: jsonb("services").$type<Service[]>().notNull().default([]),
   validityMonths: integer("validity_months").notNull(),
-  price: integer("price").notNull(), // in rupees
-  adultsCount: integer("adults_count").notNull().default(1),
-  kidsCount: integer("kids_count").notNull().default(0),
+  price: integer("price").notNull().default(0), // legacy - kept for backward compat
+  adultsCount: integer("adults_count").notNull().default(1), // legacy
+  kidsCount: integer("kids_count").notNull().default(0), // legacy
+  pricingTiers: jsonb("pricing_tiers").$type<PricingTier[]>().notNull().default([]),
   termsAndConditions: text("terms_and_conditions"),
   isActive: boolean("is_active").notNull().default(true),
   isEnterprise: boolean("is_enterprise").notNull().default(false),
