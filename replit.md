@@ -4,6 +4,15 @@
 
 Sakra IKOC is a healthcare package management system that allows customers to purchase bundled healthcare services (lab tests, consultations, physiotherapy sessions) and redeem them over time. The application has three main interfaces: a customer-facing portal for browsing, purchasing, and tracking packages; an admin dashboard for managing packages, processing service redemptions, and corporate onboarding; and a super admin interface for SMS management.
 
+### Package Lifecycle
+- Packages have a `status` field: `draft`, `published`, or `deleted`
+- **Draft**: Editable, can be published, cloned, or deleted
+- **Published**: Locked (not editable), visible to customers, can only be cloned or deleted
+- **Deleted**: Soft-deleted, shown in "Deleted" tab, not visible to customers
+- Only published packages are purchasable by customers
+- The `isActive` field is kept for backward compatibility but `status` is the primary lifecycle driver
+- Clone creates a new draft package with "(Copy)" appended to the title
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.

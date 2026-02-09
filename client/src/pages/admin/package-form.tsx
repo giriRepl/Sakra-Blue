@@ -56,8 +56,11 @@ export default function PackageFormPage() {
   const { token, isLoading: authLoading } = useAdminAuth();
   const { toast } = useToast();
 
-  const isNew = matchNew;
-  const packageId = editParams?.id;
+  const searchParams = new URLSearchParams(window.location.search);
+  const cloneId = searchParams.get("clone");
+  const isClone = matchNew && !!cloneId;
+  const isNew = matchNew && !cloneId;
+  const packageId = editParams?.id || cloneId;
 
   const form = useForm<PackageFormData>({
     resolver: zodResolver(packageFormSchema),
@@ -88,10 +91,11 @@ export default function PackageFormPage() {
   useEffect(() => {
     if (existingPackage) {
       form.reset({
-        title: existingPackage.title,
+        title: isClone ? `${existingPackage.title} (Copy)` : existingPackage.title,
         description: existingPackage.description,
         services: existingPackage.services.map((s) => ({
           ...s,
+          id: isClone ? generateServiceId() : s.id,
           type: s.type || "quantity",
           isUnlimited: s.isUnlimited || false,
           percentage: s.percentage,
@@ -101,11 +105,11 @@ export default function PackageFormPage() {
         adultsCount: existingPackage.adultsCount,
         kidsCount: existingPackage.kidsCount,
         termsAndConditions: existingPackage.termsAndConditions || "",
-        isActive: existingPackage.isActive,
+        isActive: true,
         isEnterprise: existingPackage.isEnterprise || false,
       });
     }
-  }, [existingPackage, form]);
+  }, [existingPackage, form, isClone]);
 
   const createMutation = useMutation({
     mutationFn: async (data: PackageFormData) => {
@@ -154,7 +158,7 @@ export default function PackageFormPage() {
   });
 
   const handleSubmit = (data: PackageFormData) => {
-    if (isNew) {
+    if (isNew || isClone) {
       createMutation.mutate(data);
     } else {
       updateMutation.mutate(data);
@@ -163,7 +167,7 @@ export default function PackageFormPage() {
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
-  if (authLoading || (!isNew && packageLoading)) {
+  if (authLoading || (!(isNew && !isClone) && packageLoading)) {
     return <LoadingPage />;
   }
 
@@ -173,7 +177,7 @@ export default function PackageFormPage() {
   }
 
   return (
-    <AdminLayout title={isNew ? "Create Package" : "Edit Package"}>
+    <AdminLayout title={isClone ? "Clone Package" : isNew ? "Create Package" : "Edit Package"}>
       <div data-testid="page-package-form">
         <Button
           variant="ghost"

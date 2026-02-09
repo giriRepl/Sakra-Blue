@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
-import { ArrowLeft, Edit, Clock, Check } from "lucide-react";
+import { ArrowLeft, Edit, Clock, Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -63,13 +63,25 @@ export default function PackageViewPage() {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Packages
           </Button>
-          <Button
-            onClick={() => navigate(`/admin/packages/${pkg.id}/edit`)}
-            data-testid="button-edit"
-          >
-            <Edit className="h-4 w-4 mr-2" />
-            Edit Package
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => navigate(`/admin/packages/new?clone=${pkg.id}`)}
+              data-testid="button-clone"
+            >
+              <Copy className="h-4 w-4 mr-2" />
+              Clone
+            </Button>
+            {pkg.status === "draft" && (
+              <Button
+                onClick={() => navigate(`/admin/packages/${pkg.id}/edit`)}
+                data-testid="button-edit"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Package
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
@@ -82,8 +94,8 @@ export default function PackageViewPage() {
                     <CardTitle className="text-2xl">{pkg.title}</CardTitle>
                     <p className="text-muted-foreground mt-2">{pkg.description}</p>
                   </div>
-                  <Badge variant={pkg.isActive ? "default" : "secondary"}>
-                    {pkg.isActive ? "Active" : "Inactive"}
+                  <Badge variant={pkg.status === "published" ? "default" : pkg.status === "deleted" ? "destructive" : "outline"}>
+                    {pkg.status === "published" ? "Published" : pkg.status === "deleted" ? "Deleted" : "Draft"}
                   </Badge>
                 </div>
               </CardHeader>
@@ -161,8 +173,8 @@ export default function PackageViewPage() {
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Status</span>
-                  <Badge variant={pkg.isActive ? "default" : "outline"}>
-                    {pkg.isActive ? "Active" : "Inactive"}
+                  <Badge variant={pkg.status === "published" ? "default" : pkg.status === "deleted" ? "destructive" : "outline"}>
+                    {pkg.status === "published" ? "Published" : pkg.status === "deleted" ? "Deleted" : "Draft"}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between">

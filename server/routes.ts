@@ -62,11 +62,21 @@ export async function registerRoutes(
     }
   });
 
-  // Get single package by ID (public for viewing)
+  // Get deleted packages (must be before :id route)
+  app.get("/api/packages/deleted", requireAdminAuth, async (req, res) => {
+    try {
+      const pkgs = await storage.getDeletedPackages();
+      res.json(pkgs);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch deleted packages" });
+    }
+  });
+
+  // Get single package by ID (public for viewing - excludes deleted)
   app.get("/api/packages/:id", async (req, res) => {
     try {
       const pkg = await storage.getPackage(req.params.id);
-      if (!pkg) {
+      if (!pkg || pkg.status === "deleted") {
         return res.status(404).json({ error: "Package not found" });
       }
       res.json(pkg);
@@ -168,10 +178,10 @@ export async function registerRoutes(
         customer = await storage.createCustomer({ mobile });
       }
 
-      // Get package
+      // Get package - must be published
       const pkg = await storage.getPackage(packageId);
-      if (!pkg || !pkg.isActive) {
-        return res.status(404).json({ error: "Package not found or inactive" });
+      if (!pkg || pkg.status !== "published") {
+        return res.status(404).json({ error: "Package not found or not available for purchase" });
       }
 
       // Create purchase - calculate expiry from validityMonths
@@ -340,21 +350,55 @@ export async function registerRoutes(
     }
   });
 
-  // Update package
+  // Update package (blocked for published packages)
   app.put("/api/packages/:id", requireAdminAuth, async (req, res) => {
     try {
+      const existing = await storage.getPackage(req.params.id);
+      if (!existing) {
+        return res.status(404).json({ error: "Package not found" });
+      }
+      if (existing.status === "published") {
+        return res.status(400).json({ error: "Published packages cannot be edited. Clone it to create a new version." });
+      }
+      if (existing.status === "deleted") {
+        return res.status(400).json({ error: "Deleted packages cannot be edited." });
+      }
+
       const result = insertPackageSchema.partial().safeParse(req.body);
       if (!result.success) {
         return res.status(400).json({ error: "Invalid package data", details: result.error });
       }
 
       const pkg = await storage.updatePackage(req.params.id, result.data);
+      res.json(pkg);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update package" });
+    }
+  });
+
+  // Publish package
+  app.patch("/api/packages/:id/publish", requireAdminAuth, async (req, res) => {
+    try {
+      const pkg = await storage.publishPackage(req.params.id);
+      if (!pkg) {
+        return res.status(404).json({ error: "Package not found or already published" });
+      }
+      res.json(pkg);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to publish package" });
+    }
+  });
+
+  // Soft delete package
+  app.delete("/api/packages/:id", requireAdminAuth, async (req, res) => {
+    try {
+      const pkg = await storage.softDeletePackage(req.params.id);
       if (!pkg) {
         return res.status(404).json({ error: "Package not found" });
       }
       res.json(pkg);
     } catch (error) {
-      res.status(500).json({ error: "Failed to update package" });
+      res.status(500).json({ error: "Failed to delete package" });
     }
   });
 

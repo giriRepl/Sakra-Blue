@@ -31,16 +31,19 @@ import {
   type DashboardStats,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, and } from "drizzle-orm";
+import { eq, desc, sql, and, ne } from "drizzle-orm";
 
 export interface IStorage {
   // Packages
   getAllPackages(): Promise<Package[]>;
+  getDeletedPackages(): Promise<Package[]>;
   getActivePackages(): Promise<Package[]>;
   getPackage(id: string): Promise<Package | undefined>;
   createPackage(pkg: InsertPackage): Promise<Package>;
   updatePackage(id: string, pkg: Partial<InsertPackage>): Promise<Package | undefined>;
   togglePackageActive(id: string): Promise<Package | undefined>;
+  publishPackage(id: string): Promise<Package | undefined>;
+  softDeletePackage(id: string): Promise<Package | undefined>;
 
   // Customers
   getCustomer(id: string): Promise<Customer | undefined>;
@@ -90,12 +93,16 @@ export interface IStorage {
 export class DatabaseStorage implements IStorage {
   // Packages
   async getAllPackages(): Promise<Package[]> {
-    return db.select().from(packages).orderBy(desc(packages.createdAt));
+    return db.select().from(packages).where(ne(packages.status, "deleted")).orderBy(desc(packages.createdAt));
+  }
+
+  async getDeletedPackages(): Promise<Package[]> {
+    return db.select().from(packages).where(eq(packages.status, "deleted")).orderBy(desc(packages.createdAt));
   }
 
   async getActivePackages(): Promise<Package[]> {
     return db.select().from(packages).where(
-      and(eq(packages.isActive, true), eq(packages.isEnterprise, false))
+      and(eq(packages.status, "published"), eq(packages.isEnterprise, false))
     ).orderBy(desc(packages.createdAt));
   }
 
@@ -120,6 +127,28 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db
       .update(packages)
       .set({ isActive: !existing.isActive })
+      .where(eq(packages.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async publishPackage(id: string): Promise<Package | undefined> {
+    const existing = await this.getPackage(id);
+    if (!existing || existing.status !== "draft") return undefined;
+    const [updated] = await db
+      .update(packages)
+      .set({ status: "published", isActive: true })
+      .where(eq(packages.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async softDeletePackage(id: string): Promise<Package | undefined> {
+    const existing = await this.getPackage(id);
+    if (!existing || existing.status === "deleted") return undefined;
+    const [updated] = await db
+      .update(packages)
+      .set({ status: "deleted", isActive: false })
       .where(eq(packages.id, id))
       .returning();
     return updated || undefined;
@@ -322,7 +351,7 @@ export class DatabaseStorage implements IStorage {
 
   // Stats
   async getDashboardStats(): Promise<DashboardStats> {
-    const activePackages = await db.select().from(packages).where(eq(packages.isActive, true));
+    const activePackages = await db.select().from(packages).where(eq(packages.status, "published"));
     const allPurchases = await db.select().from(purchases);
     
     // Get unique customers who have at least one redemption
