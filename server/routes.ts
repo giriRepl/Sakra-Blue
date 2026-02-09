@@ -328,13 +328,15 @@ export async function registerRoutes(
     try {
       const result = insertPackageSchema.safeParse(req.body);
       if (!result.success) {
-        return res.status(400).json({ error: "Invalid package data", details: result.error });
+        console.error("Package validation error:", JSON.stringify(result.error.issues));
+        return res.status(400).json({ error: "Invalid package data", details: result.error.issues });
       }
 
       const pkg = await storage.createPackage(result.data);
       res.json(pkg);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to create package" });
+    } catch (error: any) {
+      console.error("Failed to create package:", error?.message || error);
+      res.status(500).json({ error: "Failed to create package", detail: error?.message });
     }
   });
 

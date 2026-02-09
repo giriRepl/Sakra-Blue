@@ -111,10 +111,11 @@ export default function PackageFormPage() {
       });
       navigate("/admin/packages");
     },
-    onError: () => {
+    onError: (error: any) => {
+      const msg = error?.message || "Failed to create package. Please try again.";
       toast({
         title: "Error",
-        description: "Failed to create package. Please try again.",
+        description: msg,
         variant: "destructive",
       });
     },
