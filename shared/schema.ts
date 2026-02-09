@@ -198,6 +198,64 @@ export const insertSmsTemplateSchema = createInsertSchema(smsTemplates).omit({
 export type InsertSmsTemplate = z.infer<typeof insertSmsTemplateSchema>;
 export type SmsTemplate = typeof smsTemplates.$inferSelect;
 
+// Corporates table - corporate onboarding
+export const corporates = pgTable("corporates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  contactPerson: text("contact_person").notNull(),
+  email: text("email").notNull(),
+  mobile: text("mobile").notNull(),
+  packageId: varchar("package_id").notNull().references(() => packages.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const corporatesRelations = relations(corporates, ({ one }) => ({
+  package: one(packages, {
+    fields: [corporates.packageId],
+    references: [packages.id],
+  }),
+}));
+
+export const insertCorporateSchema = createInsertSchema(corporates).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCorporate = z.infer<typeof insertCorporateSchema>;
+export type Corporate = typeof corporates.$inferSelect;
+
+// Corporate Employees table
+export const corporateEmployees = pgTable("corporate_employees", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  corporateId: varchar("corporate_id").notNull().references(() => corporates.id),
+  name: text("name").notNull(),
+  mobile: text("mobile").notNull(),
+  email: text("email"),
+  employeeId: text("employee_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const corporateEmployeesRelations = relations(corporateEmployees, ({ one }) => ({
+  corporate: one(corporates, {
+    fields: [corporateEmployees.corporateId],
+    references: [corporates.id],
+  }),
+}));
+
+export const insertCorporateEmployeeSchema = createInsertSchema(corporateEmployees).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCorporateEmployee = z.infer<typeof insertCorporateEmployeeSchema>;
+export type CorporateEmployee = typeof corporateEmployees.$inferSelect;
+
+// Corporate with details
+export type CorporateWithDetails = Corporate & {
+  package: Package;
+  employeeCount: number;
+};
+
 // Purchase with full details for API responses
 export type PurchaseWithDetails = Purchase & {
   customer: Customer;
