@@ -5,6 +5,7 @@ import {
   redemptions,
   admins,
   members,
+  smsTemplates,
   type Package,
   type InsertPackage,
   type Customer,
@@ -17,6 +18,8 @@ import {
   type InsertAdmin,
   type Member,
   type InsertMember,
+  type SmsTemplate,
+  type InsertSmsTemplate,
   type PurchaseWithDetails,
   type DashboardStats,
 } from "@shared/schema";
@@ -56,6 +59,13 @@ export interface IStorage {
   // Admins
   getAdminByEmail(email: string): Promise<Admin | undefined>;
   createAdmin(admin: InsertAdmin): Promise<Admin>;
+
+  // SMS Templates
+  getAllSmsTemplates(): Promise<SmsTemplate[]>;
+  getSmsTemplate(id: string): Promise<SmsTemplate | undefined>;
+  createSmsTemplate(template: InsertSmsTemplate): Promise<SmsTemplate>;
+  updateSmsTemplate(id: string, template: Partial<InsertSmsTemplate>): Promise<SmsTemplate | undefined>;
+  deleteSmsTemplate(id: string): Promise<boolean>;
 
   // Stats
   getDashboardStats(): Promise<DashboardStats>;
@@ -219,6 +229,31 @@ export class DatabaseStorage implements IStorage {
   async createAdmin(admin: InsertAdmin): Promise<Admin> {
     const [created] = await db.insert(admins).values(admin).returning();
     return created;
+  }
+
+  // SMS Templates
+  async getAllSmsTemplates(): Promise<SmsTemplate[]> {
+    return db.select().from(smsTemplates).orderBy(desc(smsTemplates.createdAt));
+  }
+
+  async getSmsTemplate(id: string): Promise<SmsTemplate | undefined> {
+    const [template] = await db.select().from(smsTemplates).where(eq(smsTemplates.id, id));
+    return template || undefined;
+  }
+
+  async createSmsTemplate(template: InsertSmsTemplate): Promise<SmsTemplate> {
+    const [created] = await db.insert(smsTemplates).values(template).returning();
+    return created;
+  }
+
+  async updateSmsTemplate(id: string, template: Partial<InsertSmsTemplate>): Promise<SmsTemplate | undefined> {
+    const [updated] = await db.update(smsTemplates).set(template).where(eq(smsTemplates.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteSmsTemplate(id: string): Promise<boolean> {
+    const result = await db.delete(smsTemplates).where(eq(smsTemplates.id, id)).returning();
+    return result.length > 0;
   }
 
   // Stats

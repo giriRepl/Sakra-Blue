@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertPackageSchema, type Package, type Service } from "@shared/schema";
+import { insertPackageSchema, insertSmsTemplateSchema, type Package, type Service } from "@shared/schema";
 import { z } from "zod";
 import { addMonths } from "date-fns";
 
@@ -630,6 +630,58 @@ export async function registerRoutes(
       }
       console.error("SMS send error:", error);
       res.status(500).json({ error: "Failed to send SMS" });
+    }
+  });
+
+  // ============ SUPER ADMIN - SMS TEMPLATES ============
+
+  app.get("/api/superadmin/sms-templates", requireSuperAdminAuth, async (req: Request, res: Response) => {
+    try {
+      const templates = await storage.getAllSmsTemplates();
+      res.json(templates);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch SMS templates" });
+    }
+  });
+
+  app.post("/api/superadmin/sms-templates", requireSuperAdminAuth, async (req: Request, res: Response) => {
+    try {
+      const result = insertSmsTemplateSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: "Invalid template data", details: result.error });
+      }
+      const template = await storage.createSmsTemplate(result.data);
+      res.json(template);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create SMS template" });
+    }
+  });
+
+  app.put("/api/superadmin/sms-templates/:id", requireSuperAdminAuth, async (req: Request, res: Response) => {
+    try {
+      const result = insertSmsTemplateSchema.partial().safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: "Invalid template data", details: result.error });
+      }
+      const template = await storage.updateSmsTemplate(req.params.id, result.data);
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update SMS template" });
+    }
+  });
+
+  app.delete("/api/superadmin/sms-templates/:id", requireSuperAdminAuth, async (req: Request, res: Response) => {
+    try {
+      const deleted = await storage.deleteSmsTemplate(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete SMS template" });
     }
   });
 

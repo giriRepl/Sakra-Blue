@@ -176,6 +176,23 @@ export type InsertMember = {
   relation?: string;
 };
 
+// SMS Templates table
+export const smsTemplates = pgTable("sms_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  text: text("text").notNull(),
+  templateId: text("template_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertSmsTemplateSchema = createInsertSchema(smsTemplates).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSmsTemplate = z.infer<typeof insertSmsTemplateSchema>;
+export type SmsTemplate = typeof smsTemplates.$inferSelect;
+
 // Purchase with full details for API responses
 export type PurchaseWithDetails = Purchase & {
   customer: Customer;
