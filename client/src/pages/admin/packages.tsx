@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Plus, Edit, Eye, Loader2 } from "lucide-react";
+import { Plus, Edit, Eye, Loader2, Users, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -140,6 +140,16 @@ export default function AdminPackagesPage() {
     enabled: !!token,
   });
 
+  const consumerPackages = useMemo(
+    () => (packages || []).filter((pkg) => !pkg.isEnterprise),
+    [packages],
+  );
+
+  const corporatePackages = useMemo(
+    () => (packages || []).filter((pkg) => pkg.isEnterprise),
+    [packages],
+  );
+
   if (authLoading) {
     return <LoadingPage />;
   }
@@ -152,7 +162,7 @@ export default function AdminPackagesPage() {
   return (
     <AdminLayout title="Packages">
       <div data-testid="page-admin-packages">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <p className="text-muted-foreground">
             Manage your healthcare packages
           </p>
@@ -166,15 +176,55 @@ export default function AdminPackagesPage() {
         </div>
 
         {isLoading ? (
-          <div className="grid gap-6 md:grid-cols-2">
-            <LoadingCard />
-            <LoadingCard />
+          <div className="space-y-8">
+            <div className="grid gap-6 md:grid-cols-2">
+              <LoadingCard />
+              <LoadingCard />
+            </div>
           </div>
         ) : packages && packages.length > 0 ? (
-          <div className="grid gap-6 md:grid-cols-2">
-            {packages.map((pkg) => (
-              <PackageCard key={pkg.id} pkg={pkg} />
-            ))}
+          <div className="space-y-10">
+            <section data-testid="section-consumer-packages">
+              <div className="flex items-center gap-2 mb-4">
+                <Users className="h-5 w-5 text-muted-foreground" />
+                <h2 className="text-lg font-semibold">Consumer Packages</h2>
+                <Badge variant="secondary">{consumerPackages.length}</Badge>
+              </div>
+              {consumerPackages.length > 0 ? (
+                <div className="grid gap-6 md:grid-cols-2">
+                  {consumerPackages.map((pkg) => (
+                    <PackageCard key={pkg.id} pkg={pkg} />
+                  ))}
+                </div>
+              ) : (
+                <Card className="p-6">
+                  <p className="text-sm text-muted-foreground text-center" data-testid="text-no-consumer-packages">
+                    No consumer packages yet. Create a package without the Enterprise flag.
+                  </p>
+                </Card>
+              )}
+            </section>
+
+            <section data-testid="section-corporate-packages">
+              <div className="flex items-center gap-2 mb-4">
+                <Building2 className="h-5 w-5 text-muted-foreground" />
+                <h2 className="text-lg font-semibold">Corporate Packages</h2>
+                <Badge variant="secondary">{corporatePackages.length}</Badge>
+              </div>
+              {corporatePackages.length > 0 ? (
+                <div className="grid gap-6 md:grid-cols-2">
+                  {corporatePackages.map((pkg) => (
+                    <PackageCard key={pkg.id} pkg={pkg} />
+                  ))}
+                </div>
+              ) : (
+                <Card className="p-6">
+                  <p className="text-sm text-muted-foreground text-center" data-testid="text-no-corporate-packages">
+                    No corporate packages yet. Create a package with the Enterprise flag enabled.
+                  </p>
+                </Card>
+              )}
+            </section>
           </div>
         ) : (
           <EmptyState
