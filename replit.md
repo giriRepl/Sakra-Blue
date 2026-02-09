@@ -15,7 +15,7 @@ Preferred communication style: Simple, everyday language.
 - **Routing**: Wouter (lightweight client-side routing)
 - **State Management**: TanStack React Query for server state, React Context for auth state
 - **UI Components**: shadcn/ui component library built on Radix UI primitives
-- **Styling**: Tailwind CSS with custom healthcare-focused design tokens
+- **Styling**: Tailwind CSS with Sakra brand design tokens (Pink/Purple/Green/Blue palette)
 - **Form Handling**: React Hook Form with Zod validation
 - **Build Tool**: Vite
 
