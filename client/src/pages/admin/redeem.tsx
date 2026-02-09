@@ -169,6 +169,8 @@ export default function AdminRedeemPage() {
   };
 
   const getAvailableQuantity = (service: Service, redemptions: Redemption[]) => {
+    if ((service.type || "quantity") === "percentage") return -1;
+    if (service.isUnlimited) return -1;
     const used = redemptions.filter((r) => r.serviceId === service.id).length;
     return service.quantity - used;
   };
@@ -371,17 +373,29 @@ export default function AdminRedeemPage() {
                               const redemptionCount = (purchase.redemptions || []).filter(
                                 (r) => r.serviceId === service.id
                               ).length;
+                              const svcType = service.type || "quantity";
+                              const isUnlimited = service.isUnlimited || false;
                               const total = service.quantity;
-                              const isFullyConsumed = redemptionCount >= total;
+                              const isFullyConsumed = svcType === "quantity" && !isUnlimited && redemptionCount >= total;
                               
                               return (
                                 <div key={service.id} className="flex items-center justify-between text-sm">
                                   <span className={isFullyConsumed ? "text-muted-foreground line-through" : ""}>
                                     {service.name}
                                   </span>
-                                  <Badge variant={isFullyConsumed ? "secondary" : "outline"} className="text-xs">
-                                    {redemptionCount}/{total} used
-                                  </Badge>
+                                  {svcType === "percentage" && service.percentage ? (
+                                    <Badge variant="outline" className="text-xs">
+                                      {service.percentage}% off
+                                    </Badge>
+                                  ) : isUnlimited ? (
+                                    <Badge variant="outline" className="text-xs">
+                                      {redemptionCount} used
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant={isFullyConsumed ? "secondary" : "outline"} className="text-xs">
+                                      {redemptionCount}/{total} used
+                                    </Badge>
+                                  )}
                                 </div>
                               );
                             })}
@@ -461,7 +475,9 @@ export default function AdminRedeemPage() {
                     {/* Services Section */}
                     {selectedPurchase.packageSnapshot.services.map((service, index) => {
                       const available = getAvailableQuantity(service, selectedPurchase.redemptions || []);
-                      const isDisabled = available <= 0;
+                      const svcType = service.type || "quantity";
+                      const isUnlimited = service.isUnlimited || false;
+                      const isDisabled = available !== -1 && available <= 0;
                       const isSelected = selectedServices.some((s) => s.serviceId === service.id);
 
                       return (
@@ -477,13 +493,23 @@ export default function AdminRedeemPage() {
                               data-testid={`checkbox-service-${service.id}`}
                             />
                             <div className="flex-1">
-                              <div className="flex items-center justify-between">
+                              <div className="flex items-center justify-between gap-2">
                                 <span className={`font-medium ${isDisabled ? "text-muted-foreground" : ""}`}>
                                   {service.name}
                                 </span>
-                                <Badge variant={available > 0 ? "outline" : "secondary"}>
-                                  {available}/{service.quantity} available
-                                </Badge>
+                                {svcType === "percentage" && service.percentage ? (
+                                  <Badge variant="secondary">
+                                    {service.percentage}% off
+                                  </Badge>
+                                ) : isUnlimited ? (
+                                  <Badge variant="outline">
+                                    Unlimited
+                                  </Badge>
+                                ) : (
+                                  <Badge variant={available > 0 ? "outline" : "secondary"}>
+                                    {available}/{service.quantity} available
+                                  </Badge>
+                                )}
                               </div>
                               {service.description && (
                                 <p className="text-sm text-muted-foreground mt-1">

@@ -48,9 +48,13 @@ function PurchaseCard({ purchase }: PurchaseCardProps) {
   const isExpired = isPast(expiryDate);
   const daysRemaining = differenceInDays(expiryDate, new Date());
 
-  // Calculate total services and redeemed count
-  const totalServices = pkg.services.reduce((sum, s) => sum + s.quantity, 0);
-  const redeemedCount = purchase.redemptions?.length || 0;
+  // Calculate total services and redeemed count (only count quantity-based limited services)
+  const quantityServices = pkg.services.filter((s) => (s.type || "quantity") === "quantity" && !s.isUnlimited);
+  const totalServices = quantityServices.reduce((sum, s) => sum + s.quantity, 0);
+  const redeemedCount = (purchase.redemptions || []).filter((r) => {
+    const svc = pkg.services.find((s) => s.id === r.serviceId);
+    return svc && (svc.type || "quantity") === "quantity" && !svc.isUnlimited;
+  }).length;
   const remainingServices = Math.max(0, totalServices - redeemedCount);
   const progressPercent = totalServices > 0 ? ((totalServices - remainingServices) / totalServices) * 100 : 0;
 
@@ -112,8 +116,10 @@ function PurchaseCard({ purchase }: PurchaseCardProps) {
             {pkg.services.map((service: Service) => {
               const serviceRedemptions = redemptionsByService[service.id] || [];
               const usedCount = serviceRedemptions.length;
+              const svcType = service.type || "quantity";
+              const isUnlimited = service.isUnlimited || false;
               const totalQty = service.quantity;
-              const allUsed = usedCount >= totalQty;
+              const allUsed = svcType === "quantity" && !isUnlimited && usedCount >= totalQty;
 
               return (
                 <div key={service.id} className="flex items-start gap-3" data-testid={`service-${service.id}`}>
@@ -129,9 +135,19 @@ function PurchaseCard({ purchase }: PurchaseCardProps) {
                       <p className={`text-sm font-medium ${allUsed ? "line-through text-muted-foreground" : ""}`}>
                         {service.name}
                       </p>
-                      <Badge variant="outline" className="text-xs shrink-0">
-                        {usedCount}/{totalQty}
-                      </Badge>
+                      {svcType === "percentage" && service.percentage ? (
+                        <Badge variant="outline" className="text-xs shrink-0">
+                          {service.percentage}% off
+                        </Badge>
+                      ) : isUnlimited ? (
+                        <Badge variant="outline" className="text-xs shrink-0">
+                          {usedCount} used
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs shrink-0">
+                          {usedCount}/{totalQty}
+                        </Badge>
+                      )}
                     </div>
                     {serviceRedemptions.length > 0 && (
                       <p className="text-xs text-muted-foreground mt-1">

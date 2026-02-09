@@ -122,11 +122,19 @@ export default function PackageDetailsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="font-medium">{service.name}</p>
-                        {service.quantity > 1 && (
+                        {service.type === "percentage" && service.percentage ? (
+                          <Badge variant="secondary" className="text-xs">
+                            {service.percentage}% off
+                          </Badge>
+                        ) : service.isUnlimited ? (
+                          <Badge variant="secondary" className="text-xs">
+                            Unlimited
+                          </Badge>
+                        ) : service.quantity > 1 ? (
                           <Badge variant="secondary" className="text-xs">
                             x{service.quantity}
                           </Badge>
-                        )}
+                        ) : null}
                       </div>
                       {service.description && (
                         <p className="text-sm text-muted-foreground mt-1">

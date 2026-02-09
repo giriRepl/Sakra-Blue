@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
-import { ArrowLeft, Plus, Trash2, Loader2, Save } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Loader2, Save, Hash, Percent, Infinity } from "lucide-react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Separator } from "@/components/ui/separator";
 import { AdminLayout } from "@/components/admin-layout";
@@ -23,7 +24,10 @@ const serviceSchema = z.object({
   id: z.string(),
   name: z.string().min(1, "Service name is required"),
   description: z.string(),
-  quantity: z.number().min(1, "Quantity must be at least 1"),
+  type: z.enum(["quantity", "percentage"]).default("quantity"),
+  quantity: z.number().min(1).default(1),
+  isUnlimited: z.boolean().default(false),
+  percentage: z.number().min(0).max(100).optional(),
 });
 
 const packageFormSchema = z.object({
@@ -60,7 +64,7 @@ export default function PackageFormPage() {
     defaultValues: {
       title: "",
       description: "",
-      services: [{ id: generateServiceId(), name: "", description: "", quantity: 1 }],
+      services: [{ id: generateServiceId(), name: "", description: "", type: "quantity" as const, quantity: 1, isUnlimited: false, percentage: undefined }],
       validityMonths: 12,
       price: 0,
       adultsCount: 1,
@@ -86,7 +90,12 @@ export default function PackageFormPage() {
       form.reset({
         title: existingPackage.title,
         description: existingPackage.description,
-        services: existingPackage.services,
+        services: existingPackage.services.map((s) => ({
+          ...s,
+          type: s.type || "quantity",
+          isUnlimited: s.isUnlimited || false,
+          percentage: s.percentage,
+        })),
         validityMonths: existingPackage.validityMonths,
         price: existingPackage.price,
         adultsCount: existingPackage.adultsCount,
@@ -348,44 +357,155 @@ export default function PackageFormPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {fields.map((field, index) => (
-                  <div key={field.id} className="space-y-4">
-                    {index > 0 && <Separator />}
-                    <div className="flex items-start gap-4">
-                      <div className="flex-1 space-y-4">
-                        <div className="grid gap-4 sm:grid-cols-2">
+                {fields.map((field, index) => {
+                  const serviceType = form.watch(`services.${index}.type`);
+                  const isUnlimited = form.watch(`services.${index}.isUnlimited`);
+                  return (
+                    <div key={field.id} className="space-y-4">
+                      {index > 0 && <Separator />}
+                      <div className="flex items-start gap-4">
+                        <div className="flex-1 space-y-4">
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <FormField
+                              control={form.control}
+                              name={`services.${index}.name`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Service Name</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      {...field}
+                                      placeholder="e.g., OPD Consulting"
+                                      className="h-12"
+                                      data-testid={`input-service-name-${index}`}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name={`services.${index}.type`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Service Type</FormLabel>
+                                  <Select
+                                    value={field.value}
+                                    onValueChange={(val) => {
+                                      field.onChange(val);
+                                      if (val === "percentage") {
+                                        form.setValue(`services.${index}.isUnlimited`, false);
+                                        form.setValue(`services.${index}.quantity`, 1);
+                                        form.setValue(`services.${index}.percentage`, 10);
+                                      } else {
+                                        form.setValue(`services.${index}.percentage`, undefined);
+                                      }
+                                    }}
+                                  >
+                                    <FormControl>
+                                      <SelectTrigger className="h-12" data-testid={`select-service-type-${index}`}>
+                                        <SelectValue placeholder="Select type" />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      <SelectItem value="quantity">
+                                        <span className="flex items-center gap-2"><Hash className="h-3.5 w-3.5" /> Number of Services</span>
+                                      </SelectItem>
+                                      <SelectItem value="percentage">
+                                        <span className="flex items-center gap-2"><Percent className="h-3.5 w-3.5" /> Percentage Off</span>
+                                      </SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                          {serviceType === "quantity" && (
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <FormField
+                                control={form.control}
+                                name={`services.${index}.isUnlimited`}
+                                render={({ field }) => (
+                                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                                    <div className="space-y-0.5">
+                                      <FormLabel className="text-sm">Unlimited</FormLabel>
+                                      <FormDescription className="text-xs">No limit on usage</FormDescription>
+                                    </div>
+                                    <FormControl>
+                                      <Switch
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                        data-testid={`switch-service-unlimited-${index}`}
+                                      />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
+                              {!isUnlimited && (
+                                <FormField
+                                  control={form.control}
+                                  name={`services.${index}.quantity`}
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel>Number of Times</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          type="number"
+                                          {...field}
+                                          onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                                          min={1}
+                                          className="h-12"
+                                          data-testid={`input-service-quantity-${index}`}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              )}
+                            </div>
+                          )}
+                          {serviceType === "percentage" && (
+                            <FormField
+                              control={form.control}
+                              name={`services.${index}.percentage`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Discount Percentage</FormLabel>
+                                  <FormControl>
+                                    <div className="relative">
+                                      <Input
+                                        type="number"
+                                        value={field.value ?? ""}
+                                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                        min={0}
+                                        max={100}
+                                        placeholder="10"
+                                        className="h-12 pr-8"
+                                        data-testid={`input-service-percentage-${index}`}
+                                      />
+                                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                                    </div>
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          )}
                           <FormField
                             control={form.control}
-                            name={`services.${index}.name`}
+                            name={`services.${index}.description`}
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Service Name</FormLabel>
+                                <FormLabel>Description (optional)</FormLabel>
                                 <FormControl>
                                   <Input
                                     {...field}
-                                    placeholder="e.g., Blood Test"
+                                    placeholder="Brief description of the service"
                                     className="h-12"
-                                    data-testid={`input-service-name-${index}`}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={form.control}
-                            name={`services.${index}.quantity`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Quantity</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    type="number"
-                                    {...field}
-                                    onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
-                                    min={1}
-                                    className="h-12"
-                                    data-testid={`input-service-quantity-${index}`}
+                                    data-testid={`input-service-description-${index}`}
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -393,46 +513,28 @@ export default function PackageFormPage() {
                             )}
                           />
                         </div>
-                        <FormField
-                          control={form.control}
-                          name={`services.${index}.description`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Description (optional)</FormLabel>
-                              <FormControl>
-                                <Input
-                                  {...field}
-                                  placeholder="Brief description of the service"
-                                  className="h-12"
-                                  data-testid={`input-service-description-${index}`}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                        {fields.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="mt-8"
+                            onClick={() => remove(index)}
+                            data-testid={`button-remove-service-${index}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
                       </div>
-                      {fields.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="mt-8"
-                          onClick={() => remove(index)}
-                          data-testid={`button-remove-service-${index}`}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 <Button
                   type="button"
                   variant="outline"
                   className="w-full"
                   onClick={() =>
-                    append({ id: generateServiceId(), name: "", description: "", quantity: 1 })
+                    append({ id: generateServiceId(), name: "", description: "", type: "quantity", quantity: 1, isUnlimited: false, percentage: undefined })
                   }
                   data-testid="button-add-service"
                 >

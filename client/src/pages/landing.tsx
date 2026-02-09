@@ -171,11 +171,19 @@ export default function LandingPage() {
                         <div key={service.id} className="flex items-center gap-2 text-sm">
                           <div className="h-1.5 w-1.5 rounded-full bg-primary" />
                           <span>{service.name}</span>
-                          {service.quantity > 1 && (
+                          {service.type === "percentage" && service.percentage ? (
+                            <Badge variant="outline" className="text-xs ml-auto">
+                              {service.percentage}% off
+                            </Badge>
+                          ) : service.isUnlimited ? (
+                            <Badge variant="outline" className="text-xs ml-auto">
+                              Unlimited
+                            </Badge>
+                          ) : service.quantity > 1 ? (
                             <Badge variant="outline" className="text-xs ml-auto">
                               x{service.quantity}
                             </Badge>
-                          )}
+                          ) : null}
                         </div>
                       ))}
                       {pkg.services.length > 3 && (
