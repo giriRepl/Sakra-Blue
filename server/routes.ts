@@ -544,5 +544,94 @@ export async function registerRoutes(
     }
   });
 
+  // ==========================================
+  // SUPER ADMIN - SMS API (Karix Integration)
+  // ==========================================
+
+  const SUPERADMIN_PASSCODE = "7999";
+
+  function requireSuperAdminAuth(req: Request, res: Response, next: NextFunction) {
+    const passcode = req.headers["x-superadmin-passcode"];
+    if (!passcode || passcode !== SUPERADMIN_PASSCODE) {
+      return res.status(401).json({ error: "Super admin authentication required" });
+    }
+    next();
+  }
+
+  app.post("/api/superadmin/send-sms", requireSuperAdminAuth, async (req: Request, res: Response) => {
+    try {
+      const schema = z.object({
+        mobile: z.string().regex(/^[6-9]\d{9}$/, "Valid 10-digit mobile number required"),
+        message: z.string().min(1, "Message is required"),
+      });
+
+      const { mobile, message } = schema.parse(req.body);
+
+      const apiKey = process.env.KARIX_API_KEY;
+      const senderId = process.env.KARIX_SENDER_ID;
+      const entityId = process.env.KARIX_ENTITY_ID;
+
+      if (!apiKey || !senderId || !entityId) {
+        return res.status(500).json({ error: "SMS gateway credentials not configured" });
+      }
+
+      const dest = `91${mobile}`;
+
+      const payload = {
+        ver: "1.0",
+        key: apiKey,
+        encrpt: "0",
+        messages: [
+          {
+            dest: [dest],
+            text: message,
+            send: senderId,
+            type: "PM",
+            dlt_entity_id: entityId,
+          },
+        ],
+      };
+
+      const response = await fetch("https://japi.instaalerts.zone/httpapi/JsonReceiver", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const responseText = await response.text();
+
+      if (!response.ok) {
+        console.error("Karix HTTP error:", response.status, responseText);
+        return res.status(502).json({ error: `SMS gateway returned HTTP ${response.status}` });
+      }
+
+      let result: any;
+      try {
+        result = JSON.parse(responseText);
+      } catch {
+        console.error("Karix non-JSON response:", responseText);
+        return res.status(502).json({ error: "SMS gateway returned an unexpected response" });
+      }
+
+      console.log("Karix SMS response:", JSON.stringify(result));
+
+      if (result.status?.code === "200") {
+        res.json({ success: true, ackid: result.ackid, message: "SMS sent successfully" });
+      } else {
+        res.status(400).json({
+          success: false,
+          error: result.status?.desc || "SMS delivery failed",
+          details: result,
+        });
+      }
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      console.error("SMS send error:", error);
+      res.status(500).json({ error: "Failed to send SMS" });
+    }
+  });
+
   return httpServer;
 }

@@ -4,6 +4,7 @@ import { Lock, Loader2, ArrowLeft, MessageSquare, Send, Phone } from "lucide-rea
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,7 +23,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 
-const PASSCODE = "7999";
+const SUPERADMIN_PASSCODE = "7999";
 
 const passcodeSchema = z.object({
   passcode: z.string().min(1, "Passcode is required"),
@@ -42,7 +43,7 @@ function SuperAdminLogin({ onLogin }: { onLogin: () => void }) {
   });
 
   const handleSubmit = (data: z.infer<typeof passcodeSchema>) => {
-    if (data.passcode === PASSCODE) {
+    if (data.passcode === SUPERADMIN_PASSCODE) {
       onLogin();
     } else {
       toast({
@@ -126,23 +127,46 @@ function SuperAdminLogin({ onLogin }: { onLogin: () => void }) {
 
 function SMSPage() {
   const { toast } = useToast();
-  const [isSending, setIsSending] = useState(false);
 
   const form = useForm<z.infer<typeof smsSchema>>({
     resolver: zodResolver(smsSchema),
     defaultValues: { mobile: "", message: "" },
   });
 
-  const handleSubmit = (data: z.infer<typeof smsSchema>) => {
-    setIsSending(true);
-    setTimeout(() => {
-      setIsSending(false);
+  const sendSmsMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof smsSchema>) => {
+      const res = await fetch("/api/superadmin/send-sms", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-superadmin-passcode": SUPERADMIN_PASSCODE,
+        },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Request failed" }));
+        throw new Error(err.error || "Failed to send SMS");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
       toast({
         title: "SMS Sent Successfully",
-        description: `Message sent to ${data.mobile}`,
+        description: data.message || "Message delivered",
       });
       form.reset();
-    }, 800);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "SMS Failed",
+        description: error.message || "Failed to send SMS. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSubmit = (data: z.infer<typeof smsSchema>) => {
+    sendSmsMutation.mutate(data);
   };
 
   return (
@@ -203,10 +227,10 @@ function SMSPage() {
               <Button
                 type="submit"
                 className="w-full h-12"
-                disabled={isSending}
+                disabled={sendSmsMutation.isPending}
                 data-testid="button-send-sms"
               >
-                {isSending ? (
+                {sendSmsMutation.isPending ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <Send className="mr-2 h-4 w-4" />

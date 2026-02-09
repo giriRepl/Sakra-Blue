@@ -77,6 +77,13 @@ Preferred communication style: Simple, everyday language.
 - **class-variance-authority**: Component variant styling
 - **clsx/tailwind-merge**: Conditional class utilities
 
+### SMS Gateway
+- **Karix (Tanla)**: SMS delivery via JSON API
+  - Endpoint: `https://japi.instaalerts.zone/httpapi/JsonReceiver`
+  - Auth: API key in request body (`key` field)
+  - Secrets: `KARIX_API_KEY`, `KARIX_SENDER_ID`, `KARIX_ENTITY_ID`
+  - Super Admin SMS page at `/superadmin` (passcode: 7999)
+
 ### Build & Development
 - **Vite**: Frontend build tool with HMR
 - **esbuild**: Server bundling for production
