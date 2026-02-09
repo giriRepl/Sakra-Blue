@@ -92,7 +92,7 @@ export async function registerRoutes(
         verified: false,
       });
 
-      res.json({ message: "OTP sent successfully" });
+      res.json({ message: "OTP sent successfully", otp: DUMMY_OTP });
     } catch (error) {
       res.status(500).json({ error: "Failed to send OTP" });
     }

@@ -98,6 +98,7 @@ export default function PurchaseFlowPage() {
 
   const [step, setStep] = useState<Step>("mobile");
   const [mobile, setMobile] = useState("");
+  const [generatedOtp, setGeneratedOtp] = useState("");
   const [purchaseId, setPurchaseId] = useState<string | null>(null);
 
   const stepIndex = { mobile: 0, otp: 1, payment: 2, members: 3, profile: 4, success: 5 }[step];
@@ -142,12 +143,13 @@ export default function PurchaseFlowPage() {
       const res = await apiRequest("POST", "/api/auth/send-otp", data);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       setMobile(mobileForm.getValues("mobile"));
+      setGeneratedOtp(data.otp || "");
       setStep("otp");
       toast({
         title: "OTP Sent",
-        description: "A verification code has been sent to your mobile (use 79 for testing)",
+        description: "Check the OTP displayed on screen",
       });
     },
     onError: () => {
@@ -434,9 +436,12 @@ export default function PurchaseFlowPage() {
                       </FormItem>
                     )}
                   />
-                  <p className="text-center text-sm text-muted-foreground">
-                    Use <Badge variant="secondary">79</Badge> for testing
-                  </p>
+                  {generatedOtp && (
+                    <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-center" data-testid="display-generated-otp">
+                      <p className="text-xs text-muted-foreground mb-1">Generated OTP (for testing)</p>
+                      <p className="text-2xl font-bold tracking-widest text-primary">{generatedOtp}</p>
+                    </div>
+                  )}
                   <Button
                     type="submit"
                     className="w-full h-12"

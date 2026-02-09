@@ -30,6 +30,7 @@ export default function CustomerLoginPage() {
   const { login } = useCustomerAuth();
   const [step, setStep] = useState<"mobile" | "otp">("mobile");
   const [mobile, setMobile] = useState("");
+  const [generatedOtp, setGeneratedOtp] = useState("");
 
   const mobileForm = useForm<z.infer<typeof mobileSchema>>({
     resolver: zodResolver(mobileSchema),
@@ -46,12 +47,13 @@ export default function CustomerLoginPage() {
       const res = await apiRequest("POST", "/api/auth/send-otp", data);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       setMobile(mobileForm.getValues("mobile"));
+      setGeneratedOtp(data.otp || "");
       setStep("otp");
       toast({
         title: "OTP Sent",
-        description: "Enter 79 to verify for testing",
+        description: "Check the OTP displayed on screen",
       });
     },
     onError: () => {
@@ -218,9 +220,12 @@ export default function CustomerLoginPage() {
                       </FormItem>
                     )}
                   />
-                  <p className="text-center text-sm text-muted-foreground">
-                    Use <Badge variant="secondary">79</Badge> for testing
-                  </p>
+                  {generatedOtp && (
+                    <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-center" data-testid="display-generated-otp">
+                      <p className="text-xs text-muted-foreground mb-1">Generated OTP (for testing)</p>
+                      <p className="text-2xl font-bold tracking-widest text-primary">{generatedOtp}</p>
+                    </div>
+                  )}
                   <Button
                     type="submit"
                     className="w-full h-12"
