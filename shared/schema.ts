@@ -4,11 +4,16 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Service type for package services
+// type "quantity" = limited/unlimited number of uses (e.g., 5 OPD consultancies)
+// type "percentage" = percentage discount (e.g., 10% off pharmacy)
 export const serviceSchema = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string(),
+  type: z.enum(["quantity", "percentage"]).default("quantity"),
   quantity: z.number().default(1),
+  isUnlimited: z.boolean().default(false),
+  percentage: z.number().min(0).max(100).optional(),
 });
 
 export type Service = z.infer<typeof serviceSchema>;
