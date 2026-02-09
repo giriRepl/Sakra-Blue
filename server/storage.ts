@@ -6,6 +6,8 @@ import {
   admins,
   members,
   smsTemplates,
+  corporates,
+  corporateEmployees,
   type Package,
   type InsertPackage,
   type Customer,
@@ -20,6 +22,11 @@ import {
   type InsertMember,
   type SmsTemplate,
   type InsertSmsTemplate,
+  type Corporate,
+  type InsertCorporate,
+  type CorporateEmployee,
+  type InsertCorporateEmployee,
+  type CorporateWithDetails,
   type PurchaseWithDetails,
   type DashboardStats,
 } from "@shared/schema";
@@ -66,6 +73,15 @@ export interface IStorage {
   createSmsTemplate(template: InsertSmsTemplate): Promise<SmsTemplate>;
   updateSmsTemplate(id: string, template: Partial<InsertSmsTemplate>): Promise<SmsTemplate | undefined>;
   deleteSmsTemplate(id: string): Promise<boolean>;
+
+  // Corporates
+  getAllCorporates(): Promise<CorporateWithDetails[]>;
+  getCorporate(id: string): Promise<CorporateWithDetails | undefined>;
+  createCorporate(corporate: InsertCorporate): Promise<Corporate>;
+  deleteCorporate(id: string): Promise<boolean>;
+  getEmployeesByCorporate(corporateId: string): Promise<CorporateEmployee[]>;
+  createCorporateEmployees(employees: InsertCorporateEmployee[]): Promise<CorporateEmployee[]>;
+  deleteEmployeesByCorporate(corporateId: string): Promise<void>;
 
   // Stats
   getDashboardStats(): Promise<DashboardStats>;
@@ -254,6 +270,54 @@ export class DatabaseStorage implements IStorage {
   async deleteSmsTemplate(id: string): Promise<boolean> {
     const result = await db.delete(smsTemplates).where(eq(smsTemplates.id, id)).returning();
     return result.length > 0;
+  }
+
+  // Corporates
+  async getAllCorporates(): Promise<CorporateWithDetails[]> {
+    const corporateList = await db.select().from(corporates).orderBy(desc(corporates.createdAt));
+    const result: CorporateWithDetails[] = [];
+    for (const corp of corporateList) {
+      const pkg = await this.getPackage(corp.packageId);
+      const empCount = await db.select({ count: sql<number>`count(*)::int` }).from(corporateEmployees).where(eq(corporateEmployees.corporateId, corp.id));
+      if (pkg) {
+        result.push({ ...corp, package: pkg, employeeCount: empCount[0]?.count || 0 });
+      }
+    }
+    return result;
+  }
+
+  async getCorporate(id: string): Promise<CorporateWithDetails | undefined> {
+    const [corp] = await db.select().from(corporates).where(eq(corporates.id, id));
+    if (!corp) return undefined;
+    const pkg = await this.getPackage(corp.packageId);
+    if (!pkg) return undefined;
+    const empCount = await db.select({ count: sql<number>`count(*)::int` }).from(corporateEmployees).where(eq(corporateEmployees.corporateId, corp.id));
+    return { ...corp, package: pkg, employeeCount: empCount[0]?.count || 0 };
+  }
+
+  async createCorporate(corporate: InsertCorporate): Promise<Corporate> {
+    const [created] = await db.insert(corporates).values(corporate).returning();
+    return created;
+  }
+
+  async deleteCorporate(id: string): Promise<boolean> {
+    await db.delete(corporateEmployees).where(eq(corporateEmployees.corporateId, id));
+    const result = await db.delete(corporates).where(eq(corporates.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async getEmployeesByCorporate(corporateId: string): Promise<CorporateEmployee[]> {
+    return db.select().from(corporateEmployees).where(eq(corporateEmployees.corporateId, corporateId)).orderBy(corporateEmployees.name);
+  }
+
+  async createCorporateEmployees(employees: InsertCorporateEmployee[]): Promise<CorporateEmployee[]> {
+    if (employees.length === 0) return [];
+    const created = await db.insert(corporateEmployees).values(employees).returning();
+    return created;
+  }
+
+  async deleteEmployeesByCorporate(corporateId: string): Promise<void> {
+    await db.delete(corporateEmployees).where(eq(corporateEmployees.corporateId, corporateId));
   }
 
   // Stats

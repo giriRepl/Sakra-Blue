@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertPackageSchema, insertSmsTemplateSchema, type Package, type Service } from "@shared/schema";
+import { insertPackageSchema, insertSmsTemplateSchema, insertCorporateSchema, type Package, type Service } from "@shared/schema";
 import { z } from "zod";
 import { addMonths } from "date-fns";
 
@@ -543,6 +543,116 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error assigning package:", error);
       res.status(500).json({ error: "Failed to assign package" });
+    }
+  });
+
+  // ============ ADMIN CORPORATE ROUTES ============
+
+  // Get all corporates
+  app.get("/api/admin/corporates", requireAdminAuth, async (req, res) => {
+    try {
+      const corps = await storage.getAllCorporates();
+      res.json(corps);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch corporates" });
+    }
+  });
+
+  // Get single corporate with employees
+  app.get("/api/admin/corporates/:id", requireAdminAuth, async (req, res) => {
+    try {
+      const corp = await storage.getCorporate(req.params.id);
+      if (!corp) {
+        return res.status(404).json({ error: "Corporate not found" });
+      }
+      const employees = await storage.getEmployeesByCorporate(corp.id);
+      res.json({ ...corp, employees });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch corporate" });
+    }
+  });
+
+  // Create corporate
+  app.post("/api/admin/corporates", requireAdminAuth, async (req, res) => {
+    try {
+      const result = insertCorporateSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: "Invalid corporate data", details: result.error.issues });
+      }
+
+      const pkg = await storage.getPackage(result.data.packageId);
+      if (!pkg) {
+        return res.status(400).json({ error: "Selected package does not exist" });
+      }
+
+      const corp = await storage.createCorporate(result.data);
+      res.json(corp);
+    } catch (error: any) {
+      console.error("Failed to create corporate:", error?.message || error);
+      res.status(500).json({ error: "Failed to create corporate" });
+    }
+  });
+
+  // Delete corporate
+  app.delete("/api/admin/corporates/:id", requireAdminAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteCorporate(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Corporate not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete corporate" });
+    }
+  });
+
+  // Upload employees for a corporate (JSON array)
+  app.post("/api/admin/corporates/:id/employees", requireAdminAuth, async (req, res) => {
+    try {
+      const corporateId = req.params.id;
+      const corp = await storage.getCorporate(corporateId);
+      if (!corp) {
+        return res.status(404).json({ error: "Corporate not found" });
+      }
+
+      const { employees } = req.body;
+      if (!employees || !Array.isArray(employees) || employees.length === 0) {
+        return res.status(400).json({ error: "Employees list is required" });
+      }
+
+      const employeesToInsert = employees.map((emp: any) => ({
+        corporateId,
+        name: emp.name?.trim() || "",
+        mobile: emp.mobile?.trim() || "",
+        email: emp.email?.trim() || undefined,
+        employeeId: emp.employeeId?.trim() || undefined,
+      }));
+
+      // Validate
+      for (const emp of employeesToInsert) {
+        if (!emp.name) {
+          return res.status(400).json({ error: "All employees must have a name" });
+        }
+        if (!emp.mobile || !/^[0-9]{10}$/.test(emp.mobile)) {
+          return res.status(400).json({ error: `Invalid mobile number for employee "${emp.name}"` });
+        }
+      }
+
+      const created = await storage.createCorporateEmployees(employeesToInsert);
+      res.json({ success: true, count: created.length, employees: created });
+    } catch (error: any) {
+      console.error("Failed to upload employees:", error?.message || error);
+      res.status(500).json({ error: "Failed to upload employees" });
+    }
+  });
+
+  // Get employees for a corporate
+  app.get("/api/admin/corporates/:id/employees", requireAdminAuth, async (req, res) => {
+    try {
+      const employees = await storage.getEmployeesByCorporate(req.params.id);
+      res.json(employees);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch employees" });
     }
   });
 

@@ -1,5 +1,5 @@
 import { useLocation, Link } from "wouter";
-import { Home, Package, Gift, LogOut, UserPlus } from "lucide-react";
+import { Home, Package, Gift, LogOut, UserPlus, Building2 } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -25,6 +25,7 @@ const menuItems = [
   { title: "Packages", href: "/admin/packages", icon: Package },
   { title: "Assign Package", href: "/admin/assign", icon: UserPlus },
   { title: "Redeem Services", href: "/admin/redeem", icon: Gift },
+  { title: "Corporate Onboarding", href: "/admin/corporates", icon: Building2 },
 ];
 
 export function AdminLayout({ children, title }: AdminLayoutProps) {

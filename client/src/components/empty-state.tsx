@@ -1,8 +1,8 @@
-import { Package, ShoppingCart, Users, Activity } from "lucide-react";
+import { Package, ShoppingCart, Users, Activity, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface EmptyStateProps {
-  icon?: "package" | "cart" | "users" | "activity";
+  icon?: "package" | "cart" | "users" | "activity" | "building";
   title: string;
   description?: string;
   action?: React.ReactNode;
@@ -14,6 +14,7 @@ const icons = {
   cart: ShoppingCart,
   users: Users,
   activity: Activity,
+  building: Building2,
 };
 
 export function EmptyState({ icon = "package", title, description, action, className }: EmptyStateProps) {

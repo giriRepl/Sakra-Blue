@@ -2,7 +2,7 @@
 
 ## Overview
 
-Sakra IKOC is a healthcare package management system that allows customers to purchase bundled healthcare services (lab tests, consultations, physiotherapy sessions) and redeem them over time. The application has two main interfaces: a customer-facing portal for browsing, purchasing, and tracking packages, and an admin dashboard for managing packages and processing service redemptions.
+Sakra IKOC is a healthcare package management system that allows customers to purchase bundled healthcare services (lab tests, consultations, physiotherapy sessions) and redeem them over time. The application has three main interfaces: a customer-facing portal for browsing, purchasing, and tracking packages; an admin dashboard for managing packages, processing service redemptions, and corporate onboarding; and a super admin interface for SMS management.
 
 ## User Preferences
 
