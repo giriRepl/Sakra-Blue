@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation, Link } from "wouter";
-import { ArrowLeft, Phone, Shield, CreditCard, CheckCircle, ChevronRight, Loader2, Users, User, Baby, MapPin } from "lucide-react";
+import { ArrowLeft, Phone, Shield, CreditCard, CheckCircle, ChevronRight, Loader2, Users, User, Baby, MapPin, ArrowLeftRight, Check, Clock } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -13,11 +13,18 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { LoadingPage } from "@/components/loading-spinner";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { getPackagePricingTiers, type Package } from "@shared/schema";
+import { getPackagePricingTiers, getLowestPrice, type Package } from "@shared/schema";
 
 type Step = "mobile" | "otp" | "payment" | "members" | "profile" | "success";
 
@@ -94,19 +101,28 @@ export default function PurchaseFlowPage() {
   const [, params] = useRoute("/buy/:id");
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const packageId = params?.id;
+  const initialPackageId = params?.id;
 
   const [step, setStep] = useState<Step>("mobile");
   const [mobile, setMobile] = useState("");
   const [generatedOtp, setGeneratedOtp] = useState("");
   const [purchaseId, setPurchaseId] = useState<string | null>(null);
   const [selectedTierIndex, setSelectedTierIndex] = useState(0);
+  const [currentPackageId, setCurrentPackageId] = useState<string | undefined>(initialPackageId);
+  const [showPackageSwitcher, setShowPackageSwitcher] = useState(false);
+
+  const packageId = currentPackageId;
 
   const stepIndex = { mobile: 0, otp: 1, payment: 2, members: 3, profile: 4, success: 5 }[step];
 
   const { data: pkg, isLoading } = useQuery<Package>({
     queryKey: ["/api/packages", packageId],
     enabled: !!packageId,
+  });
+
+  const { data: allPackages } = useQuery<Package[]>({
+    queryKey: ["/api/packages/active"],
+    enabled: showPackageSwitcher,
   });
 
   const mobileForm = useForm<z.infer<typeof mobileSchema>>({
@@ -321,7 +337,7 @@ export default function PurchaseFlowPage() {
                 variant="ghost"
                 size="icon"
                 onClick={() => {
-                  if (step === "mobile") navigate(`/package/${packageId}`);
+                  if (step === "mobile") navigate(`/package/${currentPackageId || initialPackageId}`);
                   else if (step === "otp") setStep("mobile");
                   else if (step === "payment") setStep("otp");
                   else if (step === "members") setStep("payment");
@@ -481,10 +497,23 @@ export default function PurchaseFlowPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="rounded-lg border bg-muted/30 p-4">
-                    <h4 className="font-medium mb-2">{pkg.title}</h4>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      {pkg.services.length} services • {pkg.validityMonths} months validity
-                    </p>
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h4 className="font-medium mb-2">{pkg.title}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          {pkg.services.length} services • {pkg.validityMonths} months validity
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowPackageSwitcher(true)}
+                        data-testid="button-change-package"
+                      >
+                        <ArrowLeftRight className="mr-1.5 h-3.5 w-3.5" />
+                        Change
+                      </Button>
+                    </div>
                   </div>
 
                   {tiers.length > 1 && (
@@ -873,6 +902,56 @@ export default function PurchaseFlowPage() {
           </div>
         )}
       </main>
+
+      <Dialog open={showPackageSwitcher} onOpenChange={setShowPackageSwitcher}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Switch Package</DialogTitle>
+            <DialogDescription>Select a different healthcare package</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            {allPackages?.filter(p => !p.isEnterprise).map((p) => {
+              const isSelected = p.id === packageId;
+              return (
+                <div
+                  key={p.id}
+                  className={`flex items-start justify-between gap-3 p-4 rounded-md border cursor-pointer transition-colors ${
+                    isSelected ? "border-primary bg-primary/5" : "hover-elevate"
+                  }`}
+                  onClick={() => {
+                    if (!isSelected) {
+                      setCurrentPackageId(p.id);
+                      setSelectedTierIndex(0);
+                    }
+                    setShowPackageSwitcher(false);
+                  }}
+                  data-testid={`switcher-package-${p.id}`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{p.title}</span>
+                      {isSelected && (
+                        <Badge variant="secondary" className="text-xs">Current</Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1 line-clamp-1">{p.description}</p>
+                    <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {p.validityMonths} months
+                      </span>
+                      <span>{p.services.length} services</span>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="text-lg font-bold">{formatPrice(getLowestPrice(p))}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
