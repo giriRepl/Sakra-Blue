@@ -224,6 +224,22 @@ export const insertSmsTemplateSchema = createInsertSchema(smsTemplates).omit({
 export type InsertSmsTemplate = z.infer<typeof insertSmsTemplateSchema>;
 export type SmsTemplate = typeof smsTemplates.$inferSelect;
 
+// SMS Failure Logs table
+export const smsFailureLogs = pgTable("sms_failure_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  mobileLast4: text("mobile_last4").notNull(),
+  reason: text("reason").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertSmsFailureLogSchema = createInsertSchema(smsFailureLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSmsFailureLog = z.infer<typeof insertSmsFailureLogSchema>;
+export type SmsFailureLog = typeof smsFailureLogs.$inferSelect;
+
 // Corporates table - corporate onboarding
 export const corporates = pgTable("corporates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

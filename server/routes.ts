@@ -827,17 +827,23 @@ export async function registerRoutes(
 
       const responseText = await response.text();
 
+      const mobileLast4 = mobile.slice(-4);
+
       if (!response.ok) {
+        const reason = `SMS gateway returned HTTP ${response.status}`;
         console.error("Karix HTTP error:", response.status, responseText);
-        return res.status(502).json({ error: `SMS gateway returned HTTP ${response.status}` });
+        await storage.createSmsFailureLog({ mobileLast4, reason });
+        return res.status(502).json({ error: reason });
       }
 
       let result: any;
       try {
         result = JSON.parse(responseText);
       } catch {
+        const reason = "SMS gateway returned an unexpected response";
         console.error("Karix non-JSON response:", responseText);
-        return res.status(502).json({ error: "SMS gateway returned an unexpected response" });
+        await storage.createSmsFailureLog({ mobileLast4, reason });
+        return res.status(502).json({ error: reason });
       }
 
       console.log("Karix SMS response:", JSON.stringify(result));
@@ -845,9 +851,11 @@ export async function registerRoutes(
       if (result.status?.code === "200") {
         res.json({ success: true, ackid: result.ackid, message: "SMS sent successfully" });
       } else {
+        const reason = result.status?.desc || "SMS delivery failed";
+        await storage.createSmsFailureLog({ mobileLast4, reason });
         res.status(400).json({
           success: false,
-          error: result.status?.desc || "SMS delivery failed",
+          error: reason,
           details: result,
         });
       }
@@ -857,6 +865,17 @@ export async function registerRoutes(
       }
       console.error("SMS send error:", error);
       res.status(500).json({ error: "Failed to send SMS" });
+    }
+  });
+
+  // ============ SUPER ADMIN - SMS FAILURE LOGS ============
+
+  app.get("/api/superadmin/sms-failure-logs", requireSuperAdminAuth, async (req: Request, res: Response) => {
+    try {
+      const logs = await storage.getSmsFailureLogs();
+      res.json(logs);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch SMS failure logs" });
     }
   });
 

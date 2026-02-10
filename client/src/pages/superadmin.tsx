@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
-import { Lock, Loader2, ArrowLeft, MessageSquare, Send, Phone, FileText, Plus, Pencil, Trash2, X, Save } from "lucide-react";
+import { Lock, Loader2, ArrowLeft, MessageSquare, Send, Phone, FileText, Plus, Pencil, Trash2, X, Save, AlertTriangle } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -14,7 +14,15 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import type { SmsTemplate } from "@shared/schema";
+import type { SmsTemplate, SmsFailureLog } from "@shared/schema";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Sidebar,
   SidebarContent,
@@ -554,15 +562,90 @@ function TemplateFormDialog({
   );
 }
 
+function FailureLogsPage() {
+  const { data: logs = [], isLoading } = useQuery<SmsFailureLog[]>({
+    queryKey: ["/api/superadmin/sms-failure-logs"],
+    queryFn: async () => {
+      const res = await superAdminFetch("/api/superadmin/sms-failure-logs");
+      if (!res.ok) throw new Error("Failed to fetch logs");
+      return res.json();
+    },
+  });
+
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20" data-testid="loading-failure-logs">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-3xl" data-testid="page-failure-logs">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5" />
+            SMS Failure Logs
+          </CardTitle>
+          <CardDescription>
+            {logs.length === 0
+              ? "No SMS failures recorded yet."
+              : `${logs.length} failure${logs.length === 1 ? "" : "s"} recorded`}
+          </CardDescription>
+        </CardHeader>
+        {logs.length > 0 && (
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead data-testid="th-datetime">Date &amp; Time</TableHead>
+                  <TableHead data-testid="th-mobile">Mobile (last 4)</TableHead>
+                  <TableHead data-testid="th-reason">Failure Reason</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {logs.map((log) => (
+                  <TableRow key={log.id} data-testid={`row-failure-${log.id}`}>
+                    <TableCell className="whitespace-nowrap text-muted-foreground" data-testid={`cell-datetime-${log.id}`}>
+                      {formatDate(log.createdAt as unknown as string)}
+                    </TableCell>
+                    <TableCell data-testid={`cell-mobile-${log.id}`}>
+                      <Badge variant="outline">****{log.mobileLast4}</Badge>
+                    </TableCell>
+                    <TableCell data-testid={`cell-reason-${log.id}`}>{log.reason}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 function SuperAdminPanel({ onLogout }: { onLogout: () => void }) {
-  const [activeTab, setActiveTab] = useState<"sms" | "templates">("sms");
+  const [activeTab, setActiveTab] = useState<"sms" | "templates" | "failure-logs">("sms");
 
   const style = {
     "--sidebar-width": "14rem",
     "--sidebar-width-icon": "3rem",
   };
 
-  const pageTitle = activeTab === "sms" ? "SMS" : "Templates";
+  const pageTitle = activeTab === "sms" ? "SMS" : activeTab === "templates" ? "Templates" : "Failure Logs";
 
   return (
     <SidebarProvider style={style as React.CSSProperties}>
@@ -589,6 +672,12 @@ function SuperAdminPanel({ onLogout }: { onLogout: () => void }) {
                 <SidebarMenuButton isActive={activeTab === "templates"} onClick={() => setActiveTab("templates")} data-testid="nav-templates">
                   <FileText className="h-4 w-4" />
                   <span>Templates</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton isActive={activeTab === "failure-logs"} onClick={() => setActiveTab("failure-logs")} data-testid="nav-failure-logs">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span>Failure Logs</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -618,6 +707,7 @@ function SuperAdminPanel({ onLogout }: { onLogout: () => void }) {
             <div className="mx-auto max-w-7xl">
               {activeTab === "sms" && <SMSPage />}
               {activeTab === "templates" && <TemplatesPage />}
+              {activeTab === "failure-logs" && <FailureLogsPage />}
             </div>
           </main>
         </div>

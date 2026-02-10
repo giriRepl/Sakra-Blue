@@ -29,6 +29,9 @@ import {
   type CorporateWithDetails,
   type PurchaseWithDetails,
   type DashboardStats,
+  smsFailureLogs,
+  type SmsFailureLog,
+  type InsertSmsFailureLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, ne } from "drizzle-orm";
@@ -87,6 +90,10 @@ export interface IStorage {
   getEmployeesByCorporate(corporateId: string): Promise<CorporateEmployee[]>;
   createCorporateEmployees(employees: InsertCorporateEmployee[]): Promise<CorporateEmployee[]>;
   deleteEmployeesByCorporate(corporateId: string): Promise<void>;
+
+  // SMS Failure Logs
+  createSmsFailureLog(log: InsertSmsFailureLog): Promise<SmsFailureLog>;
+  getSmsFailureLogs(): Promise<SmsFailureLog[]>;
 
   // Stats
   getDashboardStats(): Promise<DashboardStats>;
@@ -365,6 +372,16 @@ export class DatabaseStorage implements IStorage {
 
   async deleteEmployeesByCorporate(corporateId: string): Promise<void> {
     await db.delete(corporateEmployees).where(eq(corporateEmployees.corporateId, corporateId));
+  }
+
+  // SMS Failure Logs
+  async createSmsFailureLog(log: InsertSmsFailureLog): Promise<SmsFailureLog> {
+    const [created] = await db.insert(smsFailureLogs).values(log).returning();
+    return created;
+  }
+
+  async getSmsFailureLogs(): Promise<SmsFailureLog[]> {
+    return db.select().from(smsFailureLogs).orderBy(desc(smsFailureLogs.createdAt));
   }
 
   // Stats
