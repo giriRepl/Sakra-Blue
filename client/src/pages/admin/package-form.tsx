@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
-import { ArrowLeft, Plus, Trash2, Loader2, Save, Hash, Percent, Infinity, Users } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Loader2, Save, Hash, Percent, Infinity, Users, Copy, ChevronUp, ChevronDown } from "lucide-react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -80,7 +80,7 @@ export default function PackageFormPage() {
     },
   });
 
-  const { fields: serviceFields, append: appendService, remove: removeService } = useFieldArray({
+  const { fields: serviceFields, append: appendService, remove: removeService, move: moveService, insert: insertService } = useFieldArray({
     control: form.control,
     name: "services",
   });
@@ -420,6 +420,57 @@ export default function PackageFormPage() {
                   return (
                     <div key={field.id} className="space-y-4">
                       {index > 0 && <Separator />}
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <span>Service {index + 1}</span>
+                        <div className="flex items-center gap-1 ml-auto">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            disabled={index === 0}
+                            onClick={() => moveService(index, index - 1)}
+                            data-testid={`button-move-service-up-${index}`}
+                          >
+                            <ChevronUp className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            disabled={index === serviceFields.length - 1}
+                            onClick={() => moveService(index, index + 1)}
+                            data-testid={`button-move-service-down-${index}`}
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              const current = form.getValues(`services.${index}`);
+                              insertService(index + 1, {
+                                ...current,
+                                id: generateServiceId(),
+                              });
+                            }}
+                            data-testid={`button-duplicate-service-${index}`}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          {serviceFields.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeService(index)}
+                              data-testid={`button-remove-service-${index}`}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                       <div className="flex items-start gap-4">
                         <div className="flex-1 space-y-4">
                           <div className="grid gap-4 sm:grid-cols-2">
@@ -570,18 +621,6 @@ export default function PackageFormPage() {
                             )}
                           />
                         </div>
-                        {serviceFields.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="mt-8"
-                            onClick={() => removeService(index)}
-                            data-testid={`button-remove-service-${index}`}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        )}
                       </div>
                     </div>
                   );
