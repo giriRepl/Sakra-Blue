@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
-import { ArrowLeft, Edit, Clock, Check, Copy, Users } from "lucide-react";
+import { ArrowLeft, Edit, Clock, Check, Copy, Users, Star, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -94,9 +94,23 @@ export default function PackageViewPage() {
                     <CardTitle className="text-2xl">{pkg.title}</CardTitle>
                     <p className="text-muted-foreground mt-2">{pkg.description}</p>
                   </div>
-                  <Badge variant={pkg.status === "published" ? "default" : pkg.status === "deleted" ? "destructive" : "outline"}>
-                    {pkg.status === "published" ? "Published" : pkg.status === "deleted" ? "Deleted" : "Draft"}
-                  </Badge>
+                  <div className="flex flex-col items-end gap-1.5">
+                    <Badge variant={pkg.status === "published" ? "default" : pkg.status === "deleted" ? "destructive" : "outline"}>
+                      {pkg.status === "published" ? "Published" : pkg.status === "deleted" ? "Deleted" : "Draft"}
+                    </Badge>
+                    {pkg.badge === "most_popular" && (
+                      <Badge className="gap-1 bg-amber-500 text-white" data-testid="badge-most-popular">
+                        <Star className="h-3 w-3" />
+                        Most Popular
+                      </Badge>
+                    )}
+                    {pkg.badge === "best_value" && (
+                      <Badge className="gap-1 bg-emerald-500 text-white" data-testid="badge-best-value">
+                        <Sparkles className="h-3 w-3" />
+                        Best Value
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>

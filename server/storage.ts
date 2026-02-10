@@ -44,6 +44,8 @@ export interface IStorage {
   togglePackageActive(id: string): Promise<Package | undefined>;
   publishPackage(id: string): Promise<Package | undefined>;
   softDeletePackage(id: string): Promise<Package | undefined>;
+  setPackageBadge(id: string, badge: string | null): Promise<Package | undefined>;
+  clearPackageBadge(badge: string): Promise<void>;
 
   // Customers
   getCustomer(id: string): Promise<Customer | undefined>;
@@ -148,10 +150,26 @@ export class DatabaseStorage implements IStorage {
     if (!existing || existing.status === "deleted") return undefined;
     const [updated] = await db
       .update(packages)
-      .set({ status: "deleted", isActive: false })
+      .set({ status: "deleted", isActive: false, badge: null })
       .where(eq(packages.id, id))
       .returning();
     return updated || undefined;
+  }
+
+  async setPackageBadge(id: string, badge: string | null): Promise<Package | undefined> {
+    const [updated] = await db
+      .update(packages)
+      .set({ badge })
+      .where(eq(packages.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async clearPackageBadge(badge: string): Promise<void> {
+    await db
+      .update(packages)
+      .set({ badge: null })
+      .where(eq(packages.badge, badge));
   }
 
   // Customers

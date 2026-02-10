@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRoute, useLocation, Link } from "wouter";
-import { ArrowLeft, Check, Clock, Calendar, ChevronRight, Users } from "lucide-react";
+import { ArrowLeft, Check, Clock, Calendar, ChevronRight, Users, Star, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -76,6 +76,17 @@ export default function PackageDetailsPage() {
       <main className="mx-auto max-w-2xl px-4 py-6 pb-32">
         <Card className="overflow-hidden" data-testid="card-package-details">
           <CardHeader className="bg-gradient-to-br from-primary/10 to-accent/5 pb-6">
+            {pkg.badge && (
+              <div className={`-mx-6 -mt-6 mb-4 flex items-center justify-center gap-1.5 py-2 text-sm font-semibold text-white ${
+                pkg.badge === "most_popular" ? "bg-amber-500" : "bg-emerald-500"
+              }`} data-testid={`badge-${pkg.badge}`}>
+                {pkg.badge === "most_popular" ? (
+                  <><Star className="h-4 w-4" /> Most Popular</>
+                ) : (
+                  <><Sparkles className="h-4 w-4" /> Best Value</>
+                )}
+              </div>
+            )}
             <div className="flex items-start justify-between gap-4">
               <div>
                 <CardTitle className="text-2xl mb-2">{pkg.title}</CardTitle>

@@ -13,6 +13,15 @@ Sakra IKOC is a healthcare package management system that allows customers to pu
 - The `isActive` field is kept for backward compatibility but `status` is the primary lifecycle driver
 - Clone creates a new draft package with "(Copy)" appended to the title
 
+### Package Badges
+- Packages can have a `badge` field: `null`, `"most_popular"`, or `"best_value"`
+- Only published, non-enterprise packages can have badges set
+- Only one package can be "Most Popular" and one "Best Value" at any time (auto-unmark previous holder)
+- Badge is automatically cleared when a package is soft-deleted
+- Badge removal (setting to null) is always allowed regardless of package status
+- Badges are shown on customer landing page as prominent ribbon banners and on package details page
+- Admin can set/remove badges from the packages list page (published non-enterprise only)
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.

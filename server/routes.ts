@@ -443,6 +443,44 @@ export async function registerRoutes(
     }
   });
 
+  // Set or remove badge on a package (Most Popular / Best Value)
+  app.patch("/api/packages/:id/badge", requireAdminAuth, async (req, res) => {
+    try {
+      const { badge } = req.body;
+
+      if (badge !== null && badge !== "most_popular" && badge !== "best_value") {
+        return res.status(400).json({ error: "Invalid badge value. Must be 'most_popular', 'best_value', or null" });
+      }
+
+      const pkg = await storage.getPackage(req.params.id);
+      if (!pkg) {
+        return res.status(404).json({ error: "Package not found" });
+      }
+
+      if (badge !== null) {
+        if (pkg.status !== "published") {
+          return res.status(400).json({ error: "Badge can only be set on published packages" });
+        }
+        if (pkg.isEnterprise) {
+          return res.status(400).json({ error: "Badge cannot be set on enterprise packages" });
+        }
+      }
+
+      if (badge) {
+        await storage.clearPackageBadge(badge);
+      }
+
+      const updated = await storage.setPackageBadge(req.params.id, badge);
+      if (!updated) {
+        return res.status(500).json({ error: "Failed to update badge" });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to set badge" });
+    }
+  });
+
   // ============ ADMIN STATS ROUTES ============
 
   // Get dashboard stats

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Plus, Edit, Eye, Loader2, Users, Building2, Copy, Send, Trash2 } from "lucide-react";
+import { Plus, Edit, Eye, Loader2, Users, Building2, Copy, Send, Trash2, Star, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -97,6 +97,29 @@ function PackageCard({ pkg, showActions = true }: PackageCardProps) {
     },
   });
 
+  const badgeMutation = useMutation({
+    mutationFn: async (badge: string | null) => {
+      const res = await apiRequest("PATCH", `/api/packages/${pkg.id}/badge`, { badge });
+      return res.json();
+    },
+    onSuccess: (_, badge) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/packages"] });
+      toast({
+        title: badge ? "Badge Set" : "Badge Removed",
+        description: badge
+          ? `"${pkg.title}" is now marked as ${badge === "most_popular" ? "Most Popular" : "Best Value"}.`
+          : `Badge removed from "${pkg.title}".`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update badge.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const isPublished = pkg.status === "published";
   const isDeleted = pkg.status === "deleted";
   const isDraft = pkg.status === "draft";
@@ -112,6 +135,18 @@ function PackageCard({ pkg, showActions = true }: PackageCardProps) {
               {pkg.isEnterprise && (
                 <Badge variant="outline" className="text-xs" data-testid={`badge-enterprise-${pkg.id}`}>
                   Enterprise
+                </Badge>
+              )}
+              {pkg.badge === "most_popular" && (
+                <Badge className="text-xs gap-1 bg-amber-500 text-white" data-testid={`badge-most-popular-${pkg.id}`}>
+                  <Star className="h-3 w-3" />
+                  Most Popular
+                </Badge>
+              )}
+              {pkg.badge === "best_value" && (
+                <Badge className="text-xs gap-1 bg-emerald-500 text-white" data-testid={`badge-best-value-${pkg.id}`}>
+                  <Sparkles className="h-3 w-3" />
+                  Best Value
                 </Badge>
               )}
             </div>
@@ -247,6 +282,60 @@ function PackageCard({ pkg, showActions = true }: PackageCardProps) {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+          )}
+          {isPublished && !pkg.isEnterprise && (
+            <div className="w-full flex gap-2 mt-2 pt-2 border-t">
+              {pkg.badge === "most_popular" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => badgeMutation.mutate(null)}
+                  disabled={badgeMutation.isPending}
+                  data-testid={`button-remove-badge-${pkg.id}`}
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Remove Most Popular
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => badgeMutation.mutate("most_popular")}
+                  disabled={badgeMutation.isPending}
+                  data-testid={`button-set-most-popular-${pkg.id}`}
+                >
+                  <Star className="h-4 w-4 mr-1" />
+                  Most Popular
+                </Button>
+              )}
+              {pkg.badge === "best_value" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => badgeMutation.mutate(null)}
+                  disabled={badgeMutation.isPending}
+                  data-testid={`button-remove-badge-${pkg.id}`}
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Remove Best Value
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => badgeMutation.mutate("best_value")}
+                  disabled={badgeMutation.isPending}
+                  data-testid={`button-set-best-value-${pkg.id}`}
+                >
+                  <Sparkles className="h-4 w-4 mr-1" />
+                  Best Value
+                </Button>
+              )}
+            </div>
           )}
         </CardFooter>
       )}

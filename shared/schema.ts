@@ -56,6 +56,7 @@ export const packages = pgTable("packages", {
   isActive: boolean("is_active").notNull().default(true),
   isEnterprise: boolean("is_enterprise").notNull().default(false),
   status: text("status").notNull().default("draft"), // draft, published, deleted
+  badge: text("badge"), // null, 'most_popular', 'best_value'
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
