@@ -1,7 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
-import { ArrowLeft, Plus, Trash2, Loader2, Save, Hash, Percent, Infinity, Users, Copy, ChevronUp, ChevronDown } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Loader2, Save, Hash, Percent, Infinity, Users, Copy, ChevronUp, ChevronDown, Upload } from "lucide-react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -84,6 +84,100 @@ export default function PackageFormPage() {
     control: form.control,
     name: "services",
   });
+
+  const csvFileRef = useRef<HTMLInputElement>(null);
+
+  const parseCsvLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          if (i + 1 < line.length && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = false;
+          }
+        } else {
+          current += ch;
+        }
+      } else {
+        if (ch === '"') {
+          inQuotes = true;
+        } else if (ch === ',') {
+          result.push(current.trim());
+          current = "";
+        } else {
+          current += ch;
+        }
+      }
+    }
+    result.push(current.trim());
+    return result;
+  };
+
+  const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (!text) return;
+      const lines = text.split(/\r?\n/).filter(line => line.trim());
+      if (lines.length < 2) {
+        toast({ title: "Invalid CSV", description: "CSV must have a header row and at least one data row.", variant: "destructive" });
+        return;
+      }
+      const header = parseCsvLine(lines[0]).map(h => h.toLowerCase());
+      const nameIdx = header.findIndex(h => h === "service name");
+      const typeIdx = header.findIndex(h => h === "service type");
+      const numberIdx = header.findIndex(h => h === "number");
+      const descIdx = header.findIndex(h => h === "description");
+      if (nameIdx === -1) {
+        toast({ title: "Invalid CSV", description: "CSV must have a 'Service Name' column.", variant: "destructive" });
+        return;
+      }
+      const parsed: { id: string; name: string; description: string; type: "quantity" | "percentage"; quantity: number; isUnlimited: boolean; percentage?: number }[] = [];
+      const skipped: number[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = parseCsvLine(lines[i]);
+        const name = cols[nameIdx] || "";
+        if (!name) { skipped.push(i + 1); continue; }
+        const rawType = typeIdx >= 0 ? (cols[typeIdx] || "1") : "1";
+        const rawNumber = numberIdx >= 0 ? (cols[numberIdx] || "1") : "1";
+        const desc = descIdx >= 0 ? (cols[descIdx] || "") : "";
+        if (rawType !== "1" && rawType !== "2") { skipped.push(i + 1); continue; }
+        const num = parseFloat(rawNumber);
+        if (isNaN(num)) { skipped.push(i + 1); continue; }
+        if (rawType === "2") {
+          parsed.push({ id: generateServiceId(), name, description: desc, type: "percentage", quantity: 1, isUnlimited: false, percentage: Math.min(100, Math.max(0, num)) });
+        } else {
+          const isUnlimited = num === -1;
+          parsed.push({ id: generateServiceId(), name, description: desc, type: "quantity", quantity: isUnlimited ? 1 : Math.max(1, Math.round(num)), isUnlimited });
+        }
+      }
+      if (parsed.length === 0) {
+        toast({ title: "No Services Found", description: "No valid services could be parsed from the CSV.", variant: "destructive" });
+        return;
+      }
+      const existing = form.getValues("services");
+      const hasEmptyOnly = existing.length === 1 && !existing[0].name;
+      if (hasEmptyOnly) {
+        form.setValue("services", parsed);
+      } else {
+        form.setValue("services", [...existing, ...parsed]);
+      }
+      const msg = skipped.length > 0
+        ? `${parsed.length} service(s) added. ${skipped.length} row(s) skipped (rows ${skipped.join(", ")}).`
+        : `${parsed.length} service(s) added from CSV.`;
+      toast({ title: "Services Imported", description: msg });
+    };
+    reader.readAsText(file);
+    if (csvFileRef.current) csvFileRef.current.value = "";
+  };
 
   const { fields: tierFields, append: appendTier, remove: removeTier } = useFieldArray({
     control: form.control,
@@ -625,18 +719,38 @@ export default function PackageFormPage() {
                     </div>
                   );
                 })}
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() =>
-                    appendService({ id: generateServiceId(), name: "", description: "", type: "quantity", quantity: 1, isUnlimited: false, percentage: undefined })
-                  }
-                  data-testid="button-add-service"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Service
-                </Button>
+                <input
+                  type="file"
+                  accept=".csv"
+                  ref={csvFileRef}
+                  className="hidden"
+                  onChange={handleCsvUpload}
+                  data-testid="input-csv-upload"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() =>
+                      appendService({ id: generateServiceId(), name: "", description: "", type: "quantity", quantity: 1, isUnlimited: false, percentage: undefined })
+                    }
+                    data-testid="button-add-service"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Service
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => csvFileRef.current?.click()}
+                    data-testid="button-upload-csv"
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload CSV
+                  </Button>
+                </div>
               </CardContent>
             </Card>
 
