@@ -299,11 +299,11 @@ export async function registerRoutes(
   // Update customer profile
   app.post("/api/customers/profile", async (req, res) => {
     try {
-      const { name, age, location, gender, mobile } = req.body;
+      const { name, email, age, location, gender, mobile } = req.body;
       const customerId = req.headers["x-customer-id"] as string;
       
-      if (!name || !age || !location || !gender) {
-        return res.status(400).json({ error: "Name, age, location, and gender are required" });
+      if (!name || !email || !age || !location || !gender) {
+        return res.status(400).json({ error: "Name, email, age, location, and gender are required" });
       }
 
       let customer;
@@ -317,7 +317,7 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Unauthorized" });
       }
 
-      const updated = await storage.updateCustomerProfile(customer.id, { name, age, location, gender });
+      const updated = await storage.updateCustomerProfile(customer.id, { name, email, age, location, gender });
       if (!updated) {
         return res.status(404).json({ error: "Customer not found" });
       }
@@ -610,11 +610,12 @@ export async function registerRoutes(
   // Admin update customer profile
   app.patch("/api/admin/customers/:id", requireAdminAuth, async (req, res) => {
     try {
-      const { name, age, location, gender } = req.body;
+      const { name, email, age, location, gender } = req.body;
       const customerId = req.params.id;
 
       const customer = await storage.updateCustomerProfile(customerId, {
         name,
+        email,
         age,
         location,
         gender,
@@ -661,9 +662,9 @@ export async function registerRoutes(
           gender: holder.gender,
         });
       } else {
-        // Update customer with holder details
         customer = await storage.updateCustomerProfile(customer.id, {
           name: holder.name,
+          email: holder.email || customer.email || "",
           age: holder.age,
           location: holder.location,
           gender: holder.gender,

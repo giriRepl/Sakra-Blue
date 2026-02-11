@@ -76,6 +76,7 @@ export const customers = pgTable("customers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   mobile: text("mobile").notNull().unique(),
   name: text("name"),
+  email: text("email"),
   age: integer("age"),
   location: text("location"),
   gender: text("gender"), // 'male', 'female', 'other'
@@ -89,6 +90,7 @@ export const insertCustomerSchema = createInsertSchema(customers).omit({
 
 export const updateCustomerProfileSchema = z.object({
   name: z.string().min(1, "Name is required"),
+  email: z.string().email("Please enter a valid email address"),
   age: z.coerce.number().min(1, "Age must be positive"),
   location: z.string().min(1, "Location is required"),
   gender: z.enum(["male", "female", "other"]),

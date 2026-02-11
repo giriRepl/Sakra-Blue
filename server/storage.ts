@@ -57,7 +57,7 @@ export interface IStorage {
   getCustomer(id: string): Promise<Customer | undefined>;
   getCustomerByMobile(mobile: string): Promise<Customer | undefined>;
   createCustomer(customer: InsertCustomer): Promise<Customer>;
-  updateCustomerProfile(id: string, profile: { name: string; age: number; location: string; gender: string }): Promise<Customer | undefined>;
+  updateCustomerProfile(id: string, profile: { name: string; email: string; age: number; location: string; gender: string }): Promise<Customer | undefined>;
 
   // Purchases
   createPurchase(purchase: InsertPurchase): Promise<Purchase>;
@@ -211,7 +211,7 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async updateCustomerProfile(id: string, profile: { name: string; age: number; location: string; gender: string }): Promise<Customer | undefined> {
+  async updateCustomerProfile(id: string, profile: { name: string; email: string; age: number; location: string; gender: string }): Promise<Customer | undefined> {
     const [updated] = await db
       .update(customers)
       .set(profile)

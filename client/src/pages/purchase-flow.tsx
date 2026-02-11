@@ -58,6 +58,7 @@ const membersFormSchema = z.object({
 
 const profileFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
+  email: z.string().email("Please enter a valid email address"),
   age: z.coerce.number().min(1, "Age must be positive"),
   location: z.string().min(1, "Location is required"),
   gender: z.enum(["male", "female", "other"], { required_error: "Please select your gender" }),
@@ -158,6 +159,7 @@ export default function PurchaseFlowPage() {
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
       name: "",
+      email: "",
       age: 30,
       location: "",
       gender: undefined,
@@ -817,6 +819,24 @@ export default function PurchaseFlowPage() {
                               {...field}
                               placeholder="Enter your full name"
                               data-testid="input-profile-name"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={profileForm.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email Address</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              type="email"
+                              placeholder="Enter your email address"
+                              data-testid="input-profile-email"
                             />
                           </FormControl>
                           <FormMessage />
