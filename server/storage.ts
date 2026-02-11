@@ -64,6 +64,8 @@ export interface IStorage {
   getPurchasesByCustomer(customerId: string): Promise<PurchaseWithDetails[]>;
   getPurchasesByMobile(mobile: string): Promise<PurchaseWithDetails[]>;
   getPurchase(id: string): Promise<PurchaseWithDetails | undefined>;
+  getPurchaseByRazorpayOrderId(orderId: string): Promise<Purchase | undefined>;
+  updatePurchasePayment(id: string, data: { razorpayPaymentId: string; paymentStatus: string }): Promise<Purchase | undefined>;
 
   // Redemptions
   createRedemption(redemption: InsertRedemption): Promise<Redemption>;
@@ -228,7 +230,7 @@ export class DatabaseStorage implements IStorage {
     const purchaseList = await db
       .select()
       .from(purchases)
-      .where(eq(purchases.customerId, customerId))
+      .where(and(eq(purchases.customerId, customerId), eq(purchases.paymentStatus, "paid")))
       .orderBy(desc(purchases.purchaseDate));
 
     const result: PurchaseWithDetails[] = [];
@@ -275,6 +277,19 @@ export class DatabaseStorage implements IStorage {
       redemptions: purchaseRedemptions,
       members: purchaseMembers,
     };
+  }
+
+  async getPurchaseByRazorpayOrderId(orderId: string): Promise<Purchase | undefined> {
+    const [purchase] = await db.select().from(purchases).where(eq(purchases.razorpayOrderId, orderId));
+    return purchase;
+  }
+
+  async updatePurchasePayment(id: string, data: { razorpayPaymentId: string; paymentStatus: string }): Promise<Purchase | undefined> {
+    const [updated] = await db.update(purchases)
+      .set({ razorpayPaymentId: data.razorpayPaymentId, paymentStatus: data.paymentStatus })
+      .where(eq(purchases.id, id))
+      .returning();
+    return updated;
   }
 
   // Redemptions

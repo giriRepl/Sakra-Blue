@@ -26,6 +26,15 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getPackagePricingTiers, getLowestPrice, type Package } from "@shared/schema";
 
+declare global {
+  interface Window {
+    Razorpay: new (options: Record<string, unknown>) => {
+      open: () => void;
+      on: (event: string, handler: (response: Record<string, unknown>) => void) => void;
+    };
+  }
+}
+
 type Step = "mobile" | "otp" | "payment" | "members" | "profile" | "success";
 
 const mobileSchema = z.object({
@@ -195,29 +204,80 @@ export default function PurchaseFlowPage() {
     },
   });
 
-  const purchaseMutation = useMutation({
+  const [isPaymentProcessing, setIsPaymentProcessing] = useState(false);
+
+  const createOrderMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/purchases", {
+      const res = await apiRequest("POST", "/api/purchases/create-order", {
         mobile,
         packageId,
         selectedTierIndex,
       });
       return res.json();
     },
-    onSuccess: (data) => {
-      setPurchaseId(data.id);
-      const tiers = pkg ? getPackagePricingTiers(pkg) : [];
-      const tier = tiers[selectedTierIndex] || tiers[0];
-      membersForm.reset({
-        adults: Array.from({ length: tier?.adultsCount || 0 }, () => ({ name: "", age: 18, type: "adult" as const })),
-        kids: Array.from({ length: tier?.kidsCount || 0 }, () => ({ name: "", age: 5, type: "kid" as const })),
+    onSuccess: (data: { orderId: string; amount: number; currency: string; keyId: string; packageTitle: string; selectedTier: { adultsCount: number; kidsCount: number; price: number }; purchaseId: string }) => {
+      setIsPaymentProcessing(true);
+      const options = {
+        key: data.keyId,
+        amount: data.amount,
+        currency: data.currency,
+        name: "Sakra IKOC",
+        description: data.packageTitle,
+        order_id: data.orderId,
+        handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
+          try {
+            const verifyRes = await apiRequest("POST", "/api/purchases/verify-payment", {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+            const purchase = await verifyRes.json();
+            setPurchaseId(purchase.id || data.purchaseId);
+            const tiers = pkg ? getPackagePricingTiers(pkg) : [];
+            const tier = tiers[selectedTierIndex] || tiers[0];
+            membersForm.reset({
+              adults: Array.from({ length: tier?.adultsCount || 0 }, () => ({ name: "", age: 18, type: "adult" as const })),
+              kids: Array.from({ length: tier?.kidsCount || 0 }, () => ({ name: "", age: 5, type: "kid" as const })),
+            });
+            setStep("members");
+          } catch {
+            toast({
+              title: "Payment Verification Failed",
+              description: "Your payment could not be verified. Please contact support.",
+              variant: "destructive",
+            });
+          } finally {
+            setIsPaymentProcessing(false);
+          }
+        },
+        prefill: {
+          contact: mobile,
+        },
+        theme: {
+          color: "#E91E8C",
+        },
+        modal: {
+          ondismiss: () => {
+            setIsPaymentProcessing(false);
+          },
+        },
+      };
+      const rzp = new window.Razorpay(options);
+      rzp.on("payment.failed", () => {
+        setIsPaymentProcessing(false);
+        toast({
+          title: "Payment Failed",
+          description: "Your payment was not successful. Please try again.",
+          variant: "destructive",
+        });
       });
-      setStep("members");
+      rzp.open();
     },
     onError: () => {
+      setIsPaymentProcessing(false);
       toast({
         title: "Payment Failed",
-        description: "Unable to process payment. Please try again.",
+        description: "Unable to initiate payment. Please try again.",
         variant: "destructive",
       });
     },
@@ -273,7 +333,7 @@ export default function PurchaseFlowPage() {
   };
 
   const handlePayment = () => {
-    purchaseMutation.mutate();
+    createOrderMutation.mutate();
   };
 
   const handleMembersSubmit = (data: z.infer<typeof membersFormSchema>) => {
@@ -560,25 +620,22 @@ export default function PurchaseFlowPage() {
                     {selectedTier.adultsCount} Adults, {selectedTier.kidsCount} Kids covered
                   </div>
 
-                  <div className="rounded-lg border p-4 space-y-4">
-                    <p className="text-sm text-muted-foreground text-center">
-                      This is a demo payment page. Click the button below to simulate a successful payment.
-                    </p>
-                  </div>
                 </CardContent>
               </Card>
 
               <Button
                 size="lg"
-                className="w-full h-12"
+                className="w-full"
                 onClick={handlePayment}
-                disabled={purchaseMutation.isPending}
+                disabled={createOrderMutation.isPending || isPaymentProcessing}
                 data-testid="button-pay"
               >
-                {purchaseMutation.isPending ? (
+                {(createOrderMutation.isPending || isPaymentProcessing) ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : null}
-                Pay {formatPrice(selectedTier.price)}
+                ) : (
+                  <CreditCard className="mr-2 h-4 w-4" />
+                )}
+                {isPaymentProcessing ? "Processing..." : `Pay ${formatPrice(selectedTier.price)}`}
               </Button>
             </div>
           );

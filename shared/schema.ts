@@ -106,6 +106,9 @@ export const purchases = pgTable("purchases", {
   purchaseDate: timestamp("purchase_date").defaultNow().notNull(),
   expiryDate: timestamp("expiry_date").notNull(),
   amountPaid: integer("amount_paid").notNull(),
+  razorpayOrderId: text("razorpay_order_id"),
+  razorpayPaymentId: text("razorpay_payment_id"),
+  paymentStatus: text("payment_status").notNull().default("pending"),
 });
 
 export const purchasesRelations = relations(purchases, ({ one }) => ({

@@ -4,6 +4,13 @@ import { storage } from "./storage";
 import { insertPackageSchema, insertSmsTemplateSchema, insertCorporateSchema, getPackagePricingTiers, type Package, type Service } from "@shared/schema";
 import { z } from "zod";
 import { addMonths } from "date-fns";
+import crypto from "crypto";
+import Razorpay from "razorpay";
+
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID || "",
+  key_secret: process.env.RAZORPAY_KEY_SECRET || "",
+});
 
 // Dummy OTP for testing
 const DUMMY_OTP = "79";
@@ -152,30 +159,26 @@ export async function registerRoutes(
 
   // ============ CUSTOMER PURCHASE ROUTES ============
 
-  // Create purchase
-  app.post("/api/purchases", async (req, res) => {
+  // Create Razorpay order (step 1 of payment)
+  app.post("/api/purchases/create-order", async (req, res) => {
     try {
       const { mobile, packageId, selectedTierIndex } = req.body;
 
-      // Verify OTP was confirmed
       const session = await storage.getOtpSession(mobile);
       if (!session?.verified) {
         return res.status(400).json({ error: "Please verify OTP first" });
       }
 
-      // Get or create customer
       let customer = await storage.getCustomerByMobile(mobile);
       if (!customer) {
         customer = await storage.createCustomer({ mobile });
       }
 
-      // Get package - must be published
       const pkg = await storage.getPackage(packageId);
       if (!pkg || pkg.status !== "published") {
         return res.status(404).json({ error: "Package not found or not available for purchase" });
       }
 
-      // Determine price from selected tier
       const tiers = getPackagePricingTiers(pkg);
       const tierIdx = typeof selectedTierIndex === "number" ? selectedTierIndex : 0;
       if (tierIdx < 0 || tierIdx >= tiers.length) {
@@ -183,22 +186,86 @@ export async function registerRoutes(
       }
       const selectedTier = tiers[tierIdx];
 
-      // Create purchase - calculate expiry from validityMonths
+      const order = await razorpay.orders.create({
+        amount: selectedTier.price * 100,
+        currency: "INR",
+        receipt: `rcpt_${Date.now()}`,
+      });
+
       const expiryDate = addMonths(new Date(), pkg.validityMonths);
-      const purchase = await storage.createPurchase({
+      const pendingPurchase = await storage.createPurchase({
         customerId: customer.id,
         packageId: pkg.id,
         packageSnapshot: pkg,
         purchaseDate: new Date(),
         expiryDate,
         amountPaid: selectedTier.price,
+        razorpayOrderId: order.id,
+        paymentStatus: "pending",
       });
 
-      await storage.deleteOtpSession(mobile);
-
-      res.json({ ...purchase, selectedTier });
+      res.json({
+        orderId: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        keyId: process.env.RAZORPAY_KEY_ID,
+        packageTitle: pkg.title,
+        selectedTier,
+        purchaseId: pendingPurchase.id,
+      });
     } catch (error) {
-      res.status(500).json({ error: "Failed to create purchase" });
+      console.error("Razorpay order creation error:", error);
+      res.status(500).json({ error: "Failed to create payment order" });
+    }
+  });
+
+  // Verify Razorpay payment and finalize purchase (step 2 of payment)
+  app.post("/api/purchases/verify-payment", async (req, res) => {
+    try {
+      const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+
+      const sign = razorpay_order_id + "|" + razorpay_payment_id;
+      const expectedSign = crypto
+        .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET || "")
+        .update(sign)
+        .digest("hex");
+
+      if (razorpay_signature !== expectedSign) {
+        return res.status(400).json({ error: "Payment verification failed. Invalid signature." });
+      }
+
+      const pendingPurchase = await storage.getPurchaseByRazorpayOrderId(razorpay_order_id);
+      if (!pendingPurchase) {
+        return res.status(400).json({ error: "No pending purchase found for this order" });
+      }
+
+      if (pendingPurchase.paymentStatus === "paid") {
+        return res.json(pendingPurchase);
+      }
+
+      const rzpOrder = await razorpay.orders.fetch(razorpay_order_id);
+      if (Number(rzpOrder.amount) !== pendingPurchase.amountPaid * 100) {
+        return res.status(400).json({ error: "Payment amount mismatch" });
+      }
+
+      const updatedPurchase = await storage.updatePurchasePayment(pendingPurchase.id, {
+        razorpayPaymentId: razorpay_payment_id,
+        paymentStatus: "paid",
+      });
+
+      const customer = await storage.getCustomer(pendingPurchase.customerId);
+      if (customer) {
+        await storage.deleteOtpSession(customer.mobile);
+      }
+
+      const pkg = pendingPurchase.packageSnapshot;
+      const tiers = getPackagePricingTiers(pkg);
+      const selectedTier = tiers.find(t => t.price === pendingPurchase.amountPaid) || tiers[0];
+
+      res.json({ ...updatedPurchase, selectedTier });
+    } catch (error) {
+      console.error("Payment verification error:", error);
+      res.status(500).json({ error: "Failed to verify payment" });
     }
   });
 

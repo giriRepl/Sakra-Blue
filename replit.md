@@ -95,6 +95,15 @@ Preferred communication style: Simple, everyday language.
 - **class-variance-authority**: Component variant styling
 - **clsx/tailwind-merge**: Conditional class utilities
 
+### Payment Gateway
+- **Razorpay**: Payment processing via Razorpay Checkout
+  - Server SDK: `razorpay` npm package for order creation
+  - Client: Razorpay Checkout.js loaded in `client/index.html`
+  - Flow: Create order (backend) -> Open Razorpay Checkout (frontend) -> Verify signature (backend) -> Create purchase
+  - Secrets: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`
+  - Payment fields on purchases table: `razorpayOrderId`, `razorpayPaymentId`, `paymentStatus`
+  - Signature verification uses HMAC SHA256 with `order_id|payment_id`
+
 ### SMS Gateway
 - **Karix (Tanla)**: SMS delivery via JSON API
   - Endpoint: `https://japi.instaalerts.zone/httpapi/JsonReceiver`
