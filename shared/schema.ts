@@ -60,7 +60,10 @@ export const packages = pgTable("packages", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertPackageSchema = createInsertSchema(packages).omit({
+export const insertPackageSchema = createInsertSchema(packages, {
+  services: z.array(serviceSchema),
+  pricingTiers: z.array(pricingTierSchema),
+}).omit({
   id: true,
   createdAt: true,
 });
