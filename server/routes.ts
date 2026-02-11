@@ -5,12 +5,6 @@ import { insertPackageSchema, insertSmsTemplateSchema, insertCorporateSchema, ge
 import { z } from "zod";
 import { addMonths } from "date-fns";
 
-// In-memory OTP store (for demo purposes)
-const otpStore = new Map<string, { otp: string; expiresAt: Date; verified: boolean }>();
-
-// In-memory admin session store (for demo purposes)
-const adminSessionStore = new Map<string, { adminId: string; email: string; expiresAt: Date }>();
-
 // Dummy OTP for testing
 const DUMMY_OTP = "79";
 
@@ -19,7 +13,7 @@ function generateToken(): string {
   return Math.random().toString(36).substring(2) + Date.now().toString(36);
 }
 
-// Admin authentication middleware
+// Admin authentication middleware (uses database-backed sessions)
 function requireAdminAuth(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   
@@ -28,22 +22,23 @@ function requireAdminAuth(req: Request, res: Response, next: NextFunction) {
   }
 
   const token = authHeader.substring(7);
-  const session = adminSessionStore.get(token);
+  storage.getAdminSession(token).then(session => {
+    if (!session) {
+      return res.status(401).json({ error: "Invalid or expired admin session" });
+    }
 
-  if (!session) {
-    return res.status(401).json({ error: "Invalid or expired admin session" });
-  }
+    if (new Date() > session.expiresAt) {
+      storage.deleteAdminSession(token);
+      return res.status(401).json({ error: "Admin session expired" });
+    }
 
-  if (new Date() > session.expiresAt) {
-    adminSessionStore.delete(token);
-    return res.status(401).json({ error: "Admin session expired" });
-  }
-
-  // Attach admin info to request for use in handlers
-  (req as any).adminEmail = session.email;
-  (req as any).adminId = session.adminId;
-  
-  next();
+    (req as any).adminEmail = session.email;
+    (req as any).adminId = session.adminId;
+    
+    next();
+  }).catch(() => {
+    return res.status(500).json({ error: "Session verification failed" });
+  });
 }
 
 export async function registerRoutes(
@@ -95,12 +90,8 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid mobile number" });
       }
 
-      // Store OTP (in production, this would send an actual SMS)
-      otpStore.set(mobile, {
-        otp: DUMMY_OTP,
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
-        verified: false,
-      });
+      // Store OTP in database (in production, this would send an actual SMS)
+      await storage.upsertOtpSession(mobile, DUMMY_OTP, new Date(Date.now() + 10 * 60 * 1000));
 
       res.json({ message: "OTP sent successfully", otp: DUMMY_OTP });
     } catch (error) {
@@ -112,14 +103,14 @@ export async function registerRoutes(
   app.post("/api/auth/verify-otp", async (req, res) => {
     try {
       const { mobile, otp } = req.body;
-      const session = otpStore.get(mobile);
+      const session = await storage.getOtpSession(mobile);
 
       if (!session) {
         return res.status(400).json({ error: "OTP not found. Please request a new one." });
       }
 
       if (new Date() > session.expiresAt) {
-        otpStore.delete(mobile);
+        await storage.deleteOtpSession(mobile);
         return res.status(400).json({ error: "OTP expired. Please request a new one." });
       }
 
@@ -127,7 +118,7 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid OTP" });
       }
 
-      session.verified = true;
+      await storage.markOtpVerified(mobile);
       res.json({ message: "OTP verified successfully" });
     } catch (error) {
       res.status(500).json({ error: "Failed to verify OTP" });
@@ -138,7 +129,7 @@ export async function registerRoutes(
   app.post("/api/auth/customer-login", async (req, res) => {
     try {
       const { mobile, otp } = req.body;
-      const session = otpStore.get(mobile);
+      const session = await storage.getOtpSession(mobile);
 
       if (!session || session.otp !== otp) {
         return res.status(400).json({ error: "Invalid OTP" });
@@ -151,7 +142,7 @@ export async function registerRoutes(
       }
 
       const token = generateToken();
-      otpStore.delete(mobile);
+      await storage.deleteOtpSession(mobile);
 
       res.json({ customer, token });
     } catch (error) {
@@ -167,7 +158,7 @@ export async function registerRoutes(
       const { mobile, packageId, selectedTierIndex } = req.body;
 
       // Verify OTP was confirmed
-      const session = otpStore.get(mobile);
+      const session = await storage.getOtpSession(mobile);
       if (!session?.verified) {
         return res.status(400).json({ error: "Please verify OTP first" });
       }
@@ -203,7 +194,7 @@ export async function registerRoutes(
         amountPaid: selectedTier.price,
       });
 
-      otpStore.delete(mobile);
+      await storage.deleteOtpSession(mobile);
 
       res.json({ ...purchase, selectedTier });
     } catch (error) {
@@ -241,19 +232,25 @@ export async function registerRoutes(
   // Update customer profile
   app.post("/api/customers/profile", async (req, res) => {
     try {
+      const { name, age, location, gender, mobile } = req.body;
       const customerId = req.headers["x-customer-id"] as string;
-      
-      if (!customerId) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-
-      const { name, age, location, gender } = req.body;
       
       if (!name || !age || !location || !gender) {
         return res.status(400).json({ error: "Name, age, location, and gender are required" });
       }
 
-      const updated = await storage.updateCustomerProfile(customerId, { name, age, location, gender });
+      let customer;
+      if (mobile) {
+        customer = await storage.getCustomerByMobile(mobile);
+      } else if (customerId) {
+        customer = await storage.getCustomer(customerId);
+      }
+
+      if (!customer) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const updated = await storage.updateCustomerProfile(customer.id, { name, age, location, gender });
       if (!updated) {
         return res.status(404).json({ error: "Customer not found" });
       }
@@ -300,12 +297,8 @@ export async function registerRoutes(
 
       const token = generateToken();
       
-      // Store admin session
-      adminSessionStore.set(token, {
-        adminId: admin.id,
-        email: admin.email,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-      });
+      // Store admin session in database
+      await storage.createAdminSession(token, admin.id, admin.email, new Date(Date.now() + 24 * 60 * 60 * 1000));
 
       // Don't send password in response
       const { password: _, ...adminWithoutPassword } = admin;
@@ -321,7 +314,7 @@ export async function registerRoutes(
       const authHeader = req.headers.authorization;
       if (authHeader && authHeader.startsWith("Bearer ")) {
         const token = authHeader.substring(7);
-        adminSessionStore.delete(token);
+        await storage.deleteAdminSession(token);
       }
       res.json({ message: "Logged out successfully" });
     } catch (error) {

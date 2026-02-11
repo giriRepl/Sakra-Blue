@@ -167,15 +167,23 @@ export const insertAdminSchema = createInsertSchema(admins).omit({
 export type InsertAdmin = z.infer<typeof insertAdminSchema>;
 export type Admin = typeof admins.$inferSelect;
 
-// OTP sessions (in-memory for now, but defined for type safety)
-export const otpSessionSchema = z.object({
-  mobile: z.string(),
-  otp: z.string(),
-  expiresAt: z.date(),
-  verified: z.boolean().default(false),
+// OTP sessions - persisted in database
+export const otpSessions = pgTable("otp_sessions", {
+  mobile: text("mobile").primaryKey(),
+  otp: text("otp").notNull(),
+  verified: boolean("verified").notNull().default(false),
+  expiresAt: timestamp("expires_at").notNull(),
 });
 
-export type OtpSession = z.infer<typeof otpSessionSchema>;
+export type OtpSession = typeof otpSessions.$inferSelect;
+
+// Admin sessions - persisted in database
+export const adminSessions = pgTable("admin_sessions", {
+  token: text("token").primaryKey(),
+  adminId: varchar("admin_id").notNull(),
+  email: text("email").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+});
 
 // Members table - covered individuals for a purchase
 export const members = pgTable("members", {

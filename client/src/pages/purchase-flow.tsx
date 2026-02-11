@@ -248,7 +248,7 @@ export default function PurchaseFlowPage() {
 
   const profileMutation = useMutation({
     mutationFn: async (data: z.infer<typeof profileFormSchema>) => {
-      const res = await apiRequest("POST", "/api/customers/profile", data);
+      const res = await apiRequest("POST", "/api/customers/profile", { ...data, mobile });
       return res.json();
     },
     onSuccess: () => {

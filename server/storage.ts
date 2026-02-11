@@ -8,6 +8,8 @@ import {
   smsTemplates,
   corporates,
   corporateEmployees,
+  otpSessions,
+  adminSessions,
   type Package,
   type InsertPackage,
   type Customer,
@@ -29,6 +31,7 @@ import {
   type CorporateWithDetails,
   type PurchaseWithDetails,
   type DashboardStats,
+  type OtpSession,
   smsFailureLogs,
   type SmsFailureLog,
   type InsertSmsFailureLog,
@@ -94,6 +97,17 @@ export interface IStorage {
   // SMS Failure Logs
   createSmsFailureLog(log: InsertSmsFailureLog): Promise<SmsFailureLog>;
   getSmsFailureLogs(): Promise<SmsFailureLog[]>;
+
+  // OTP Sessions
+  upsertOtpSession(mobile: string, otp: string, expiresAt: Date): Promise<void>;
+  getOtpSession(mobile: string): Promise<OtpSession | undefined>;
+  markOtpVerified(mobile: string): Promise<void>;
+  deleteOtpSession(mobile: string): Promise<void>;
+
+  // Admin Sessions
+  createAdminSession(token: string, adminId: string, email: string, expiresAt: Date): Promise<void>;
+  getAdminSession(token: string): Promise<{ adminId: string; email: string; expiresAt: Date } | undefined>;
+  deleteAdminSession(token: string): Promise<void>;
 
   // Stats
   getDashboardStats(): Promise<DashboardStats>;
@@ -382,6 +396,39 @@ export class DatabaseStorage implements IStorage {
 
   async getSmsFailureLogs(): Promise<SmsFailureLog[]> {
     return db.select().from(smsFailureLogs).orderBy(desc(smsFailureLogs.createdAt));
+  }
+
+  // OTP Sessions
+  async upsertOtpSession(mobile: string, otp: string, expiresAt: Date): Promise<void> {
+    await db.insert(otpSessions).values({ mobile, otp, verified: false, expiresAt })
+      .onConflictDoUpdate({ target: otpSessions.mobile, set: { otp, verified: false, expiresAt } });
+  }
+
+  async getOtpSession(mobile: string): Promise<OtpSession | undefined> {
+    const [session] = await db.select().from(otpSessions).where(eq(otpSessions.mobile, mobile));
+    return session || undefined;
+  }
+
+  async markOtpVerified(mobile: string): Promise<void> {
+    await db.update(otpSessions).set({ verified: true }).where(eq(otpSessions.mobile, mobile));
+  }
+
+  async deleteOtpSession(mobile: string): Promise<void> {
+    await db.delete(otpSessions).where(eq(otpSessions.mobile, mobile));
+  }
+
+  // Admin Sessions
+  async createAdminSession(token: string, adminId: string, email: string, expiresAt: Date): Promise<void> {
+    await db.insert(adminSessions).values({ token, adminId, email, expiresAt });
+  }
+
+  async getAdminSession(token: string): Promise<{ adminId: string; email: string; expiresAt: Date } | undefined> {
+    const [session] = await db.select().from(adminSessions).where(eq(adminSessions.token, token));
+    return session || undefined;
+  }
+
+  async deleteAdminSession(token: string): Promise<void> {
+    await db.delete(adminSessions).where(eq(adminSessions.token, token));
   }
 
   // Stats
