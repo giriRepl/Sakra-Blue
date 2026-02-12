@@ -1,28 +1,26 @@
 const http = require("http");
 const https = require("https");
+const querystring = require("querystring");
 
 const PORT = process.env.PORT || 3000;
 const KARIX_API_KEY = process.env.KARIX_API_KEY;
-const KARIX_URL = "https://japi.instaalerts.zone/httpapi/JsonReceiver";
+const KARIX_URL = "https://japi.instaalerts.zone/httpapi/QueryStringReceiver";
 
 if (!KARIX_API_KEY) {
   console.error("KARIX_API_KEY environment variable is required");
   process.exit(1);
 }
 
-function sendToKarix(payload) {
+function sendToKarix(params) {
   return new Promise((resolve, reject) => {
-    const data = JSON.stringify(payload);
-    const url = new URL(KARIX_URL);
+    const qs = querystring.stringify(params);
+    const fullUrl = `${KARIX_URL}?${qs}`;
+    const url = new URL(fullUrl);
 
     const options = {
       hostname: url.hostname,
-      path: url.pathname,
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(data),
-      },
+      path: url.pathname + url.search,
+      method: "GET",
     };
 
     const req = https.request(options, (res) => {
@@ -38,7 +36,6 @@ function sendToKarix(payload) {
     });
 
     req.on("error", reject);
-    req.write(data);
     req.end();
   });
 }
@@ -70,7 +67,7 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      const karixPayload = {
+      const params = {
         key: KARIX_API_KEY,
         msgtype: "TXT",
         senderid: senderId,
@@ -82,7 +79,7 @@ const server = http.createServer(async (req, res) => {
 
       console.log(`Sending SMS to ${mobile} via ${senderId}`);
 
-      const result = await sendToKarix(karixPayload);
+      const result = await sendToKarix(params);
 
       console.log(`Karix response: ${JSON.stringify(result)}`);
 
