@@ -29,6 +29,12 @@ export default function PackageViewPage() {
     enabled: !!packageId && !!token,
   });
 
+  const { data: purchaseData } = useQuery<{ hasPurchases: boolean }>({
+    queryKey: ["/api/packages", packageId, "has-purchases"],
+    enabled: !!packageId && !!token && pkg?.status !== "deleted",
+  });
+  const hasPurchases = purchaseData?.hasPurchases ?? false;
+
   if (authLoading || isLoading) {
     return <LoadingPage />;
   }
@@ -72,7 +78,7 @@ export default function PackageViewPage() {
               <Copy className="h-4 w-4 mr-2" />
               Clone
             </Button>
-            {pkg.status === "draft" && (
+            {pkg.status !== "deleted" && !hasPurchases && (
               <Button
                 onClick={() => navigate(`/admin/packages/${pkg.id}/edit`)}
                 data-testid="button-edit"

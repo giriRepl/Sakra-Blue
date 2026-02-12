@@ -428,18 +428,28 @@ export async function registerRoutes(
     }
   });
 
-  // Update package (blocked for published packages)
+  app.get("/api/packages/:id/has-purchases", requireAdminAuth, async (req, res) => {
+    try {
+      const hasPurchases = await storage.packageHasPurchases(req.params.id);
+      res.json({ hasPurchases });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to check purchases" });
+    }
+  });
+
+  // Update package (blocked if purchases exist or if deleted)
   app.put("/api/packages/:id", requireAdminAuth, async (req, res) => {
     try {
       const existing = await storage.getPackage(req.params.id);
       if (!existing) {
         return res.status(404).json({ error: "Package not found" });
       }
-      if (existing.status === "published") {
-        return res.status(400).json({ error: "Published packages cannot be edited. Clone it to create a new version." });
-      }
       if (existing.status === "deleted") {
         return res.status(400).json({ error: "Deleted packages cannot be edited." });
+      }
+      const hasPurchases = await storage.packageHasPurchases(req.params.id);
+      if (hasPurchases) {
+        return res.status(400).json({ error: "This package has purchases and cannot be edited. Clone it to create a new version." });
       }
 
       const result = insertPackageSchema.partial().safeParse(req.body);

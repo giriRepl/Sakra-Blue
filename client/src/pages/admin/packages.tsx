@@ -54,6 +54,12 @@ function PackageCard({ pkg, showActions = true }: PackageCardProps) {
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
+  const { data: purchaseData } = useQuery<{ hasPurchases: boolean }>({
+    queryKey: ["/api/packages", pkg.id, "has-purchases"],
+    enabled: pkg.status !== "deleted",
+  });
+  const hasPurchases = purchaseData?.hasPurchases ?? false;
+
   const publishMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("PATCH", `/api/packages/${pkg.id}/publish`, {});
@@ -188,7 +194,7 @@ function PackageCard({ pkg, showActions = true }: PackageCardProps) {
             <Eye className="h-4 w-4 mr-1" />
             View
           </Button>
-          {isDraft && (
+          {!isDeleted && !hasPurchases && (
             <Button
               variant="outline"
               size="sm"
@@ -232,7 +238,7 @@ function PackageCard({ pkg, showActions = true }: PackageCardProps) {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Publish Package</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Once published, this package will be visible to customers and can no longer be edited. Are you sure you want to publish "{pkg.title}"?
+                    Once published, this package will be visible to customers. You can still edit it until a purchase is made. Are you sure you want to publish "{pkg.title}"?
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

@@ -7,11 +7,13 @@ Sakra IKOC is a healthcare package management system that allows customers to pu
 ### Package Lifecycle
 - Packages have a `status` field: `draft`, `published`, or `deleted`
 - **Draft**: Editable, can be published, cloned, or deleted
-- **Published**: Locked (not editable), visible to customers, can only be cloned or deleted
+- **Published**: Visible to customers, editable until a purchase is made, can be cloned or deleted
+- **Published with purchases**: Locked (not editable), can only be cloned or deleted
 - **Deleted**: Soft-deleted, shown in "Deleted" tab, not visible to customers
 - Only published packages are purchasable by customers
 - The `isActive` field is kept for backward compatibility but `status` is the primary lifecycle driver
 - Clone creates a new draft package with "(Copy)" appended to the title
+- Edit lock is based on purchases (paid), not publish status
 
 ### Package Badges
 - Packages can have a `badge` field: `null`, `"most_popular"`, or `"best_value"`

@@ -52,6 +52,7 @@ export interface IStorage {
   softDeletePackage(id: string): Promise<Package | undefined>;
   setPackageBadge(id: string, badge: string | null): Promise<Package | undefined>;
   clearPackageBadge(badge: string): Promise<void>;
+  packageHasPurchases(id: string): Promise<boolean>;
 
   // Customers
   getCustomer(id: string): Promise<Customer | undefined>;
@@ -193,6 +194,14 @@ export class DatabaseStorage implements IStorage {
       .update(packages)
       .set({ badge: null })
       .where(eq(packages.badge, badge));
+  }
+
+  async packageHasPurchases(id: string): Promise<boolean> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(purchases)
+      .where(and(eq(purchases.packageId, id), eq(purchases.paymentStatus, "paid")));
+    return (result[0]?.count ?? 0) > 0;
   }
 
   // Customers
