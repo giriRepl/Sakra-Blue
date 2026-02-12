@@ -365,7 +365,7 @@ export async function registerRoutes(
       const token = generateToken();
       
       // Store admin session in database
-      await storage.createAdminSession(token, admin.id, admin.email, new Date(Date.now() + 24 * 60 * 60 * 1000));
+      await storage.createAdminSession(token, admin.id, admin.email, new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
 
       // Don't send password in response
       const { password: _, ...adminWithoutPassword } = admin;

@@ -1,7 +1,16 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+let onAdminSessionExpired: (() => void) | null = null;
+
+export function setAdminSessionExpiredHandler(handler: () => void) {
+  onAdminSessionExpired = handler;
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
+    if (res.status === 401 && getAdminToken()) {
+      onAdminSessionExpired?.();
+    }
     const text = (await res.text()) || res.statusText;
     throw new Error(`${res.status}: ${text}`);
   }
