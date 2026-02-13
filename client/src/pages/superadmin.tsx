@@ -282,6 +282,7 @@ function TemplatesPage() {
   const [editingTemplate, setEditingTemplate] = useState<SmsTemplate | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [testTemplate, setTestTemplate] = useState<SmsTemplate | null>(null);
 
   const { data: templates = [], isLoading } = useQuery<SmsTemplate[]>({
     queryKey: ["/api/superadmin/sms-templates"],
@@ -393,6 +394,14 @@ function TemplatesPage() {
                     <Button
                       variant="ghost"
                       size="icon"
+                      onClick={() => setTestTemplate(template)}
+                      data-testid={`button-test-template-${template.id}`}
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => setEditingTemplate(template)}
                       data-testid={`button-edit-template-${template.id}`}
                     >
@@ -433,6 +442,15 @@ function TemplatesPage() {
           title="Edit SMS Template"
           description="Update the SMS template. The text must exactly match the DLT platform registration."
           defaultValues={{ name: editingTemplate.name, text: editingTemplate.text, templateId: editingTemplate.templateId }}
+        />
+      )}
+
+      {testTemplate && (
+        <TestSmsDialog
+          key={testTemplate.id}
+          template={testTemplate}
+          open={true}
+          onOpenChange={(open) => { if (!open) setTestTemplate(null); }}
         />
       )}
 
@@ -557,6 +575,142 @@ function TemplateFormDialog({
             </DialogFooter>
           </form>
         </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function extractPlaceholders(text: string): string[] {
+  const matches = text.match(/\{#[^#}]+#\}/g);
+  return matches ? Array.from(new Set(matches)) : [];
+}
+
+function TestSmsDialog({
+  template,
+  open,
+  onOpenChange,
+}: {
+  template: SmsTemplate;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { toast } = useToast();
+  const placeholders = extractPlaceholders(template.text);
+  const [mobile, setMobile] = useState("");
+  const [replacements, setReplacements] = useState<Record<string, string>>(
+    () => Object.fromEntries(placeholders.map((p) => [p, ""]))
+  );
+  const [sending, setSending] = useState(false);
+
+  const buildMessage = () => {
+    let msg = template.text;
+    for (const [placeholder, value] of Object.entries(replacements)) {
+      msg = msg.replaceAll(placeholder, value || placeholder);
+    }
+    return msg;
+  };
+
+  const updateReplacement = (placeholder: string, value: string) => {
+    setReplacements((prev) => ({ ...prev, [placeholder]: value }));
+  };
+
+  const handleSend = async () => {
+    if (!/^[6-9]\d{9}$/.test(mobile)) {
+      toast({ title: "Invalid Mobile", description: "Enter a valid 10-digit mobile number", variant: "destructive" });
+      return;
+    }
+
+    const emptyPlaceholders = placeholders.filter((p) => !replacements[p]?.trim());
+    if (emptyPlaceholders.length > 0) {
+      toast({ title: "Missing Values", description: "Please fill in all placeholder values", variant: "destructive" });
+      return;
+    }
+
+    setSending(true);
+    try {
+      const message = buildMessage();
+      const res = await superAdminFetch("/api/superadmin/send-sms", {
+        method: "POST",
+        body: JSON.stringify({ mobile, message, templateId: template.templateId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast({ title: "Test SMS Sent", description: `SMS sent to ${mobile}` });
+        onOpenChange(false);
+      } else {
+        toast({ title: "SMS Failed", description: data.error || "Failed to send SMS", variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to send test SMS", variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const currentMessage = buildMessage();
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Send className="h-5 w-5 text-primary" />
+            Send Test SMS
+          </DialogTitle>
+          <DialogDescription>
+            Send a test SMS using the <span className="font-medium text-foreground">{template.name}</span> template
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Mobile Number</label>
+            <Input
+              value={mobile}
+              onChange={(e) => setMobile(e.target.value.replace(/\D/g, "").slice(0, 10))}
+              placeholder="9876543210"
+              maxLength={10}
+              data-testid="input-test-sms-mobile"
+            />
+          </div>
+
+          {placeholders.length > 0 && (
+            <div className="space-y-3">
+              <label className="text-sm font-medium">Placeholder Values</label>
+              {placeholders.map((placeholder) => {
+                const label = placeholder.replace(/^\{#/, "").replace(/#\}$/, "");
+                return (
+                  <div key={placeholder} className="space-y-1">
+                    <label className="text-xs text-muted-foreground">{placeholder}</label>
+                    <Input
+                      value={replacements[placeholder] || ""}
+                      onChange={(e) => updateReplacement(placeholder, e.target.value)}
+                      placeholder={`Enter value for ${label}`}
+                      data-testid={`input-test-placeholder-${label}`}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Message Preview</label>
+            <div className="bg-muted rounded-md p-3 text-sm whitespace-pre-wrap break-words" data-testid="text-test-sms-preview">
+              {currentMessage}
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel-test-sms">
+            Cancel
+          </Button>
+          <Button onClick={handleSend} disabled={sending} data-testid="button-confirm-test-sms">
+            {sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+            Send Test SMS
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
