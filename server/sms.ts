@@ -21,8 +21,8 @@ export async function sendSms(mobile: string, message: string, templateId: strin
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         secret: apiSecret,
-        to: `91${mobile}`,
-        message,
+        mobile: `91${mobile}`,
+        text: message,
         templateId,
       }),
     });
