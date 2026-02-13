@@ -107,10 +107,18 @@ Preferred communication style: Simple, everyday language.
   - Signature verification uses HMAC SHA256 with `order_id|payment_id`
 
 ### SMS Gateway
-- **Karix (Tanla)**: SMS delivery via JSON API
-  - Endpoint: `https://japi.instaalerts.zone/httpapi/JsonReceiver`
-  - Auth: API key in request body (`key` field)
-  - Secrets: `KARIX_API_KEY`, `KARIX_SENDER_ID`, `KARIX_ENTITY_ID`
+- **Sakra SMS (napses.in)**: SMS delivery via JSON API
+  - Endpoint: `https://sakrasms-prod.napses.in/send-sms`
+  - Auth: `SMS_API_SECRET` in request body (`secret` field)
+  - Utility: `server/sms.ts` — `sendSms()`, `sendTemplatedSms()`, `generateNumericOtp()`
+  - Templates stored in DB (`sms_templates` table), looked up by `name`
+  - Four SMS use cases integrated:
+    1. **OTP** (Nap_OTP): Login & purchase verification — placeholder `{#OTP#}`
+    2. **Purchase Success** (Nap_Purchase): After payment — placeholders `{#Package_Name#}`, `{#Amount#}`
+    3. **Redemption OTP** (Nap_Redeem): Before service redemption — placeholder `{#OTP#}`
+    4. **Redemption Confirmation** (Nap_Redeemed): After services redeemed — placeholders `{#Service_Name#}`, `{#Package_Name#}`
+  - Redemption OTP: Generated server-side, stored in-memory, sent via SMS, verified via `/api/admin/redeem/verify-otp`
+  - Failure logging: All SMS failures logged to `sms_failure_logs` table
   - Super Admin SMS page at `/superadmin` (passcode: 7999)
 
 ### Build & Development

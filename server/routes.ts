@@ -6,14 +6,12 @@ import { z } from "zod";
 import { addMonths } from "date-fns";
 import crypto from "crypto";
 import Razorpay from "razorpay";
+import { sendSms, sendTemplatedSms, generateNumericOtp } from "./sms";
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID || "",
   key_secret: process.env.RAZORPAY_KEY_SECRET || "",
 });
-
-// Dummy OTP for testing
-const DUMMY_OTP = "79";
 
 // Simple token generation (for demo)
 function generateToken(): string {
@@ -97,10 +95,18 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid mobile number" });
       }
 
-      // Store OTP in database (in production, this would send an actual SMS)
-      await storage.upsertOtpSession(mobile, DUMMY_OTP, new Date(Date.now() + 10 * 60 * 1000));
+      const otp = generateNumericOtp(4);
+      await storage.upsertOtpSession(mobile, otp, new Date(Date.now() + 10 * 60 * 1000));
 
-      res.json({ message: "OTP sent successfully", otp: DUMMY_OTP });
+      const smsResult = await sendTemplatedSms(mobile, "Nap_OTP", {
+        "{#OTP#}": otp,
+      });
+
+      if (!smsResult.success) {
+        console.warn(`SMS send failed for OTP to ***${mobile.slice(-4)}, falling back. Error: ${smsResult.error}`);
+      }
+
+      res.json({ message: "OTP sent successfully" });
     } catch (error) {
       res.status(500).json({ error: "Failed to send OTP" });
     }
@@ -261,6 +267,13 @@ export async function registerRoutes(
       const pkg = pendingPurchase.packageSnapshot;
       const tiers = getPackagePricingTiers(pkg);
       const selectedTier = tiers.find(t => t.price === pendingPurchase.amountPaid) || tiers[0];
+
+      if (customer) {
+        sendTemplatedSms(customer.mobile, "Nap_Purchase", {
+          "{#Package_Name#}": pkg.title,
+          "{#Amount#}": pendingPurchase.amountPaid.toString(),
+        }).catch(err => console.error("Purchase SMS error:", err));
+      }
 
       res.json({ ...updatedPurchase, selectedTier });
     } catch (error) {
@@ -591,6 +604,75 @@ export async function registerRoutes(
     }
   });
 
+  // Send redemption OTP via SMS
+  const redemptionOtpStore = new Map<string, { otp: string; expiresAt: Date }>();
+
+  app.post("/api/admin/redeem/send-otp", requireAdminAuth, async (req, res) => {
+    try {
+      const { purchaseId } = req.body;
+      if (!purchaseId) {
+        return res.status(400).json({ error: "Purchase ID required" });
+      }
+
+      const purchase = await storage.getPurchase(purchaseId);
+      if (!purchase) {
+        return res.status(404).json({ error: "Purchase not found" });
+      }
+
+      const customer = await storage.getCustomer(purchase.customerId);
+      if (!customer) {
+        return res.status(404).json({ error: "Customer not found" });
+      }
+
+      const otp = generateNumericOtp(4);
+      redemptionOtpStore.set(purchaseId, {
+        otp,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      });
+
+      const smsResult = await sendTemplatedSms(customer.mobile, "Nap_Redeem", {
+        "{#OTP#}": otp,
+      });
+
+      res.json({
+        message: "Redemption OTP sent to customer",
+        smsSent: smsResult.success,
+        mobileLast4: customer.mobile.slice(-4),
+      });
+    } catch (error) {
+      console.error("Redemption OTP error:", error);
+      res.status(500).json({ error: "Failed to send redemption OTP" });
+    }
+  });
+
+  app.post("/api/admin/redeem/verify-otp", requireAdminAuth, async (req, res) => {
+    try {
+      const { purchaseId, otp } = req.body;
+      if (!purchaseId || !otp) {
+        return res.status(400).json({ error: "Purchase ID and OTP required" });
+      }
+
+      const stored = redemptionOtpStore.get(purchaseId);
+      if (!stored) {
+        return res.status(400).json({ error: "No OTP found. Please request a new one." });
+      }
+
+      if (new Date() > stored.expiresAt) {
+        redemptionOtpStore.delete(purchaseId);
+        return res.status(400).json({ error: "OTP expired. Please request a new one." });
+      }
+
+      if (stored.otp !== otp) {
+        return res.status(400).json({ error: "Invalid OTP" });
+      }
+
+      redemptionOtpStore.delete(purchaseId);
+      res.json({ verified: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to verify OTP" });
+    }
+  });
+
   // Redeem services
   app.post("/api/admin/redeem", requireAdminAuth, async (req, res) => {
     try {
@@ -609,6 +691,18 @@ export async function registerRoutes(
           redeemedBy,
         });
         redemptions.push(redemption);
+      }
+
+      const purchase = await storage.getPurchase(purchaseId);
+      if (purchase) {
+        const customer = await storage.getCustomer(purchase.customerId);
+        if (customer) {
+          const serviceNames = services.map((s: any) => s.serviceName).join(", ");
+          sendTemplatedSms(customer.mobile, "Nap_Redeemed", {
+            "{#Service_Name#}": serviceNames,
+            "{#Package_Name#}": purchase.packageSnapshot?.title || "Package",
+          }).catch(err => console.error("Redemption SMS error:", err));
+        }
       }
 
       res.json(redemptions);
@@ -861,74 +955,17 @@ export async function registerRoutes(
       const schema = z.object({
         mobile: z.string().regex(/^[6-9]\d{9}$/, "Valid 10-digit mobile number required"),
         message: z.string().min(1, "Message is required"),
+        templateId: z.string().optional(),
       });
 
-      const { mobile, message } = schema.parse(req.body);
+      const { mobile, message, templateId } = schema.parse(req.body);
 
-      const apiKey = process.env.KARIX_API_KEY;
-      const senderId = process.env.KARIX_SENDER_ID;
-      const entityId = process.env.KARIX_ENTITY_ID;
+      const result = await sendSms(mobile, message, templateId || "");
 
-      if (!apiKey || !senderId || !entityId) {
-        return res.status(500).json({ error: "SMS gateway credentials not configured" });
-      }
-
-      const dest = `91${mobile}`;
-
-      const payload = {
-        ver: "1.0",
-        key: apiKey,
-        encrpt: "0",
-        messages: [
-          {
-            dest: [dest],
-            text: message,
-            send: senderId,
-            type: "PM",
-            dlt_entity_id: entityId,
-          },
-        ],
-      };
-
-      const response = await fetch("https://japi.instaalerts.zone/httpapi/JsonReceiver", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const responseText = await response.text();
-
-      const mobileLast4 = mobile.slice(-4);
-
-      if (!response.ok) {
-        const reason = `SMS gateway returned HTTP ${response.status}`;
-        console.error("Karix HTTP error:", response.status, responseText);
-        await storage.createSmsFailureLog({ mobileLast4, reason });
-        return res.status(502).json({ error: reason });
-      }
-
-      let result: any;
-      try {
-        result = JSON.parse(responseText);
-      } catch {
-        const reason = "SMS gateway returned an unexpected response";
-        console.error("Karix non-JSON response:", responseText);
-        await storage.createSmsFailureLog({ mobileLast4, reason });
-        return res.status(502).json({ error: reason });
-      }
-
-      console.log("Karix SMS response:", JSON.stringify(result));
-
-      if (result.status?.code === "200") {
-        res.json({ success: true, ackid: result.ackid, message: "SMS sent successfully" });
+      if (result.success) {
+        res.json({ success: true, message: "SMS sent successfully" });
       } else {
-        const reason = result.status?.desc || "SMS delivery failed";
-        await storage.createSmsFailureLog({ mobileLast4, reason });
-        res.status(400).json({
-          success: false,
-          error: reason,
-          details: result,
-        });
+        res.status(400).json({ success: false, error: result.error });
       }
     } catch (error: any) {
       if (error instanceof z.ZodError) {

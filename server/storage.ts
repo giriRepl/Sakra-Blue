@@ -84,6 +84,7 @@ export interface IStorage {
   // SMS Templates
   getAllSmsTemplates(): Promise<SmsTemplate[]>;
   getSmsTemplate(id: string): Promise<SmsTemplate | undefined>;
+  getSmsTemplateByName(name: string): Promise<SmsTemplate | undefined>;
   createSmsTemplate(template: InsertSmsTemplate): Promise<SmsTemplate>;
   updateSmsTemplate(id: string, template: Partial<InsertSmsTemplate>): Promise<SmsTemplate | undefined>;
   deleteSmsTemplate(id: string): Promise<boolean>;
@@ -346,6 +347,11 @@ export class DatabaseStorage implements IStorage {
 
   async getSmsTemplate(id: string): Promise<SmsTemplate | undefined> {
     const [template] = await db.select().from(smsTemplates).where(eq(smsTemplates.id, id));
+    return template || undefined;
+  }
+
+  async getSmsTemplateByName(name: string): Promise<SmsTemplate | undefined> {
+    const [template] = await db.select().from(smsTemplates).where(eq(smsTemplates.name, name));
     return template || undefined;
   }
 

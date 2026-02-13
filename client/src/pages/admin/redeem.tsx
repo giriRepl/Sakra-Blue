@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
@@ -48,17 +48,12 @@ export default function AdminRedeemPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   
-  // OTP state for redemption verification
   const [isOtpDialogOpen, setIsOtpDialogOpen] = useState(false);
-  const [generatedOtp, setGeneratedOtp] = useState("");
   const [enteredOtp, setEnteredOtp] = useState("");
   const [otpError, setOtpError] = useState("");
-
-  const generateOtp = useCallback(() => {
-    const otp = Math.floor(1000 + Math.random() * 9000).toString();
-    setGeneratedOtp(otp);
-    return otp;
-  }, []);
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpSmsSent, setOtpSmsSent] = useState(false);
+  const [otpMobileLast4, setOtpMobileLast4] = useState("");
 
   const profileForm = useForm<z.infer<typeof customerProfileSchema>>({
     resolver: zodResolver(customerProfileSchema),
@@ -175,36 +170,65 @@ export default function AdminRedeemPage() {
     return service.quantity - used;
   };
 
-  const handleRedeemClick = () => {
+  const handleRedeemClick = async () => {
     if (selectedPurchase && selectedServices.length > 0) {
-      generateOtp();
       setEnteredOtp("");
       setOtpError("");
+      setOtpSending(true);
+      setOtpSmsSent(false);
       setIsOtpDialogOpen(true);
+
+      try {
+        const res = await apiRequest("POST", "/api/admin/redeem/send-otp", {
+          purchaseId: selectedPurchase.id,
+        });
+        const data = await res.json();
+        setOtpSmsSent(data.smsSent);
+        setOtpMobileLast4(data.mobileLast4 || "");
+      } catch (err: any) {
+        toast({
+          title: "Failed to send OTP",
+          description: err.message || "Please try again",
+          variant: "destructive",
+        });
+      } finally {
+        setOtpSending(false);
+      }
     }
   };
 
-  const handleOtpVerify = () => {
-    if (enteredOtp !== generatedOtp) {
-      setOtpError("Invalid OTP. Please try again.");
-      return;
-    }
-    
-    if (selectedPurchase && selectedServices.length > 0) {
+  const handleOtpVerify = async () => {
+    if (!selectedPurchase || selectedServices.length === 0) return;
+
+    try {
+      const verifyRes = await apiRequest("POST", "/api/admin/redeem/verify-otp", {
+        purchaseId: selectedPurchase.id,
+        otp: enteredOtp,
+      });
+      const verifyData = await verifyRes.json();
+
+      if (!verifyData.verified) {
+        setOtpError("Invalid OTP. Please try again.");
+        return;
+      }
+
       redeemMutation.mutate({
         purchaseId: selectedPurchase.id,
         services: selectedServices,
       });
       setIsOtpDialogOpen(false);
+    } catch (err: any) {
+      setOtpError(err.message || "Invalid OTP. Please try again.");
     }
   };
 
   const handleOtpDialogClose = (open: boolean) => {
     if (!open) {
       setIsOtpDialogOpen(false);
-      setGeneratedOtp("");
       setEnteredOtp("");
       setOtpError("");
+      setOtpSmsSent(false);
+      setOtpMobileLast4("");
     }
   };
 
@@ -681,15 +705,23 @@ export default function AdminRedeemPage() {
             </DialogHeader>
             
             <div className="space-y-6 py-4">
-              {/* Display Generated OTP */}
               <div className="text-center">
-                <p className="text-sm text-muted-foreground mb-2">Generated OTP (share with customer)</p>
-                <div className="bg-primary/10 rounded-lg p-4 inline-block" data-testid="display-generated-otp">
-                  <span className="text-4xl font-bold tracking-[0.5em] text-primary">{generatedOtp}</span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  SMS integration coming soon
-                </p>
+                {otpSending ? (
+                  <div className="flex items-center justify-center gap-2 py-4" data-testid="text-otp-sending">
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                    <span className="text-sm text-muted-foreground">Sending OTP via SMS...</span>
+                  </div>
+                ) : otpSmsSent ? (
+                  <div data-testid="text-otp-sent-status">
+                    <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                    <p className="text-sm font-medium">OTP sent via SMS to ****{otpMobileLast4}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Ask the customer to share the OTP they received</p>
+                  </div>
+                ) : (
+                  <div data-testid="text-otp-fallback-status">
+                    <p className="text-sm text-muted-foreground">SMS delivery failed. Ask the customer to contact support if needed.</p>
+                  </div>
+                )}
               </div>
 
               <Separator />
