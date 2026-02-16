@@ -99,7 +99,7 @@ export async function registerRoutes(
       await storage.upsertOtpSession(mobile, otp, new Date(Date.now() + 10 * 60 * 1000));
 
       const smsResult = await sendTemplatedSms(mobile, "Nap_Otp", {
-        "{#1#}": otp,
+        "{#OTP#}": otp,
       });
 
       if (!smsResult.success) {
@@ -272,7 +272,8 @@ export async function registerRoutes(
         sendTemplatedSms(customer.mobile, "Nap_Purchase", {
           "{#Package#}": "",
           "{#Package_Name#}": pkg.title,
-          "{#Amount#}": pendingPurchase.amountPaid.toString(),
+          "{#F_Name#}": customer.name || "",
+          "{#L_Name#}": "",
         }).catch(err => console.error("Purchase SMS error:", err));
       }
 
@@ -644,16 +645,10 @@ export async function registerRoutes(
         expiresAt: new Date(Date.now() + 10 * 60 * 1000),
       });
 
-      const customerName = customer.name || "";
-      const nameParts = customerName.split(" ");
-      const firstName = nameParts[0] || "";
-      const lastName = nameParts.slice(1).join(" ") || "";
-
       const smsResult = await sendTemplatedSms(customer.mobile, "Nap_Redeem", {
-        "{#1#}": otp,
         "{#OTP#}": otp,
-        "{#F_Name#}": firstName,
-        "{#L_Name#}": lastName,
+        "{#F_Name#}": customer.name || "",
+        "{#L_Name#}": "",
         "{#Service#}": "",
       });
 
@@ -722,8 +717,9 @@ export async function registerRoutes(
         if (customer) {
           const serviceNames = services.map((s: any) => s.serviceName).join(", ");
           sendTemplatedSms(customer.mobile, "Nap_Redeemed", {
-            "{#Service_Name#}": serviceNames,
-            "{#Package_Name#}": purchase.packageSnapshot?.title || "Package",
+            "{#Service#}": serviceNames,
+            "{#F_Name#}": customer.name || "",
+            "{#L_Name#}": "",
           }).catch(err => console.error("Redemption SMS error:", err));
         }
       }
