@@ -867,7 +867,7 @@ function SmsLogsPage() {
                     <TableCell data-testid={`cell-destination-${log.id}`}>
                       {log.mobile}
                     </TableCell>
-                    <TableCell className="max-w-md truncate" data-testid={`cell-text-${log.id}`}>
+                    <TableCell className="text-sm" data-testid={`cell-text-${log.id}`}>
                       {log.message}
                     </TableCell>
                     <TableCell data-testid={`cell-status-${log.id}`}>
@@ -875,7 +875,7 @@ function SmsLogsPage() {
                         {log.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="max-w-xs truncate text-muted-foreground text-xs" data-testid={`cell-api-result-${log.id}`}>
+                    <TableCell className="text-muted-foreground text-xs" data-testid={`cell-api-result-${log.id}`}>
                       {log.apiResponse || "-"}
                     </TableCell>
                   </TableRow>
