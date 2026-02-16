@@ -12,7 +12,7 @@ export async function sendSms(mobile: string, message: string, templateId: strin
   if (!apiSecret) {
     console.error("SMS_API_SECRET not configured");
     await logFailure(mobile, "SMS_API_SECRET not configured");
-    await logSmsCall(mobile, message, templateName, "failed");
+    await logSmsCall(mobile, message, templateName, "failed", "SMS_API_SECRET not configured");
     return { success: false, error: "SMS credentials not configured" };
   }
 
@@ -34,29 +34,30 @@ export async function sendSms(mobile: string, message: string, templateId: strin
       const reason = `SMS API returned HTTP ${response.status}: ${responseText}`;
       console.error("SMS send error:", reason);
       await logFailure(mobile, reason);
-      await logSmsCall(mobile, message, templateName, "failed");
+      await logSmsCall(mobile, message, templateName, "failed", responseText);
       return { success: false, error: reason };
     }
 
     console.log(`SMS sent to ***${mobile.slice(-4)}: ${responseText}`);
-    await logSmsCall(mobile, message, templateName, "sent");
+    await logSmsCall(mobile, message, templateName, "sent", responseText);
     return { success: true };
   } catch (error: any) {
     const reason = `SMS send exception: ${error.message || "Unknown error"}`;
     console.error(reason);
     await logFailure(mobile, reason);
-    await logSmsCall(mobile, message, templateName, "failed");
+    await logSmsCall(mobile, message, templateName, "failed", reason);
     return { success: false, error: reason };
   }
 }
 
-async function logSmsCall(mobile: string, message: string, templateName: string | undefined, status: string) {
+async function logSmsCall(mobile: string, message: string, templateName: string | undefined, status: string, apiResponse?: string) {
   try {
     await storage.createSmsLog({
       mobile,
       message,
       templateName: templateName || null,
       status,
+      apiResponse: apiResponse || null,
     });
   } catch (e) {
     console.error("Failed to log SMS call:", e);

@@ -852,6 +852,7 @@ function SmsLogsPage() {
                   <TableHead data-testid="th-destination">Destination</TableHead>
                   <TableHead data-testid="th-sms-text">SMS Text</TableHead>
                   <TableHead data-testid="th-status">Status</TableHead>
+                  <TableHead data-testid="th-api-result">API Result</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -873,6 +874,9 @@ function SmsLogsPage() {
                       <Badge variant={log.status === "sent" ? "default" : "destructive"} className="text-xs">
                         {log.status}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="max-w-xs truncate text-muted-foreground text-xs" data-testid={`cell-api-result-${log.id}`}>
+                      {log.apiResponse || "-"}
                     </TableCell>
                   </TableRow>
                 ))}
