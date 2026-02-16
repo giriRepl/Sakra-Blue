@@ -1001,6 +1001,17 @@ export async function registerRoutes(
     }
   });
 
+  // ============ SUPER ADMIN - SMS LOGS ============
+
+  app.get("/api/superadmin/sms-logs", requireSuperAdminAuth, async (req: Request, res: Response) => {
+    try {
+      const logs = await storage.getSmsLogs();
+      res.json(logs);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch SMS logs" });
+    }
+  });
+
   // ============ SUPER ADMIN - SMS TEMPLATES ============
 
   app.get("/api/superadmin/sms-templates", requireSuperAdminAuth, async (req: Request, res: Response) => {

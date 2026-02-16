@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
-import { Lock, Loader2, ArrowLeft, MessageSquare, Send, Phone, FileText, Plus, Pencil, Trash2, X, Save, AlertTriangle } from "lucide-react";
+import { Lock, Loader2, ArrowLeft, MessageSquare, Send, Phone, FileText, Plus, Pencil, Trash2, X, Save, AlertTriangle, ClipboardList } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -14,7 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import type { SmsTemplate, SmsFailureLog } from "@shared/schema";
+import type { SmsTemplate, SmsFailureLog, SmsLog } from "@shared/schema";
 import {
   Table,
   TableBody,
@@ -791,15 +791,109 @@ function FailureLogsPage() {
   );
 }
 
+function SmsLogsPage() {
+  const { data: logs = [], isLoading } = useQuery<SmsLog[]>({
+    queryKey: ["/api/superadmin/sms-logs"],
+    queryFn: async () => {
+      const res = await superAdminFetch("/api/superadmin/sms-logs");
+      if (!res.ok) throw new Error("Failed to fetch SMS logs");
+      return res.json();
+    },
+  });
+
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  const formatTime = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20" data-testid="loading-sms-logs">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div data-testid="page-sms-logs">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ClipboardList className="h-5 w-5" />
+            SMS Logs
+          </CardTitle>
+          <CardDescription>
+            {logs.length === 0
+              ? "No SMS logs recorded yet."
+              : `${logs.length} SMS message${logs.length === 1 ? "" : "s"} logged`}
+          </CardDescription>
+        </CardHeader>
+        {logs.length > 0 && (
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead data-testid="th-date">Date</TableHead>
+                  <TableHead data-testid="th-time">Time</TableHead>
+                  <TableHead data-testid="th-destination">Destination</TableHead>
+                  <TableHead data-testid="th-sms-text">SMS Text</TableHead>
+                  <TableHead data-testid="th-status">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {logs.map((log) => (
+                  <TableRow key={log.id} data-testid={`row-smslog-${log.id}`}>
+                    <TableCell className="whitespace-nowrap text-muted-foreground" data-testid={`cell-date-${log.id}`}>
+                      {formatDate(log.createdAt as unknown as string)}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground" data-testid={`cell-time-${log.id}`}>
+                      {formatTime(log.createdAt as unknown as string)}
+                    </TableCell>
+                    <TableCell data-testid={`cell-destination-${log.id}`}>
+                      {log.mobile}
+                    </TableCell>
+                    <TableCell className="max-w-md truncate" data-testid={`cell-text-${log.id}`}>
+                      {log.message}
+                    </TableCell>
+                    <TableCell data-testid={`cell-status-${log.id}`}>
+                      <Badge variant={log.status === "sent" ? "default" : "destructive"} className="text-xs">
+                        {log.status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 function SuperAdminPanel({ onLogout }: { onLogout: () => void }) {
-  const [activeTab, setActiveTab] = useState<"sms" | "templates" | "failure-logs">("sms");
+  const [activeTab, setActiveTab] = useState<"sms" | "templates" | "sms-logs" | "failure-logs">("sms");
 
   const style = {
     "--sidebar-width": "14rem",
     "--sidebar-width-icon": "3rem",
   };
 
-  const pageTitle = activeTab === "sms" ? "SMS" : activeTab === "templates" ? "Templates" : "Failure Logs";
+  const pageTitle = activeTab === "sms" ? "SMS" : activeTab === "templates" ? "Templates" : activeTab === "sms-logs" ? "SMS Logs" : "Failure Logs";
 
   return (
     <SidebarProvider style={style as React.CSSProperties}>
@@ -826,6 +920,12 @@ function SuperAdminPanel({ onLogout }: { onLogout: () => void }) {
                 <SidebarMenuButton isActive={activeTab === "templates"} onClick={() => setActiveTab("templates")} data-testid="nav-templates">
                   <FileText className="h-4 w-4" />
                   <span>Templates</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton isActive={activeTab === "sms-logs"} onClick={() => setActiveTab("sms-logs")} data-testid="nav-sms-logs">
+                  <ClipboardList className="h-4 w-4" />
+                  <span>SMS Logs</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
@@ -861,6 +961,7 @@ function SuperAdminPanel({ onLogout }: { onLogout: () => void }) {
             <div className="mx-auto max-w-7xl">
               {activeTab === "sms" && <SMSPage />}
               {activeTab === "templates" && <TemplatesPage />}
+              {activeTab === "sms-logs" && <SmsLogsPage />}
               {activeTab === "failure-logs" && <FailureLogsPage />}
             </div>
           </main>

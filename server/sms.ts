@@ -7,11 +7,12 @@ interface SendSmsResult {
   error?: string;
 }
 
-export async function sendSms(mobile: string, message: string, templateId: string): Promise<SendSmsResult> {
+export async function sendSms(mobile: string, message: string, templateId: string, templateName?: string): Promise<SendSmsResult> {
   const apiSecret = process.env.SMS_API_SECRET;
   if (!apiSecret) {
     console.error("SMS_API_SECRET not configured");
     await logFailure(mobile, "SMS_API_SECRET not configured");
+    await logSmsCall(mobile, message, templateName, "failed");
     return { success: false, error: "SMS credentials not configured" };
   }
 
@@ -33,16 +34,32 @@ export async function sendSms(mobile: string, message: string, templateId: strin
       const reason = `SMS API returned HTTP ${response.status}: ${responseText}`;
       console.error("SMS send error:", reason);
       await logFailure(mobile, reason);
+      await logSmsCall(mobile, message, templateName, "failed");
       return { success: false, error: reason };
     }
 
     console.log(`SMS sent to ***${mobile.slice(-4)}: ${responseText}`);
+    await logSmsCall(mobile, message, templateName, "sent");
     return { success: true };
   } catch (error: any) {
     const reason = `SMS send exception: ${error.message || "Unknown error"}`;
     console.error(reason);
     await logFailure(mobile, reason);
+    await logSmsCall(mobile, message, templateName, "failed");
     return { success: false, error: reason };
+  }
+}
+
+async function logSmsCall(mobile: string, message: string, templateName: string | undefined, status: string) {
+  try {
+    await storage.createSmsLog({
+      mobile,
+      message,
+      templateName: templateName || null,
+      status,
+    });
+  } catch (e) {
+    console.error("Failed to log SMS call:", e);
   }
 }
 
@@ -75,7 +92,7 @@ export async function sendTemplatedSms(
     message = message.replace(new RegExp(placeholder.replace(/[{}#]/g, "\\$&"), "g"), value);
   }
 
-  return sendSms(mobile, message, template.templateId);
+  return sendSms(mobile, message, template.templateId, templateName);
 }
 
 export function generateNumericOtp(length: number = 4): string {
