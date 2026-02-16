@@ -309,6 +309,19 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/customers/by-mobile/:mobile", async (req, res) => {
+    try {
+      const { mobile } = req.params;
+      const customer = await storage.getCustomerByMobile(mobile);
+      if (!customer) {
+        return res.json({ customer: null });
+      }
+      res.json({ customer });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch customer" });
+    }
+  });
+
   // Update customer profile
   app.post("/api/customers/profile", async (req, res) => {
     try {

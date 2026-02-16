@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation, Link } from "wouter";
-import { ArrowLeft, Phone, Shield, CreditCard, CheckCircle, ChevronRight, Loader2, Users, User, Baby, MapPin, ArrowLeftRight, Check, Clock } from "lucide-react";
+import { ArrowLeft, Phone, Shield, CreditCard, CheckCircle, ChevronRight, Loader2, Users, User, Baby, MapPin, ArrowLeftRight, Check, Clock, Mail } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -72,7 +72,7 @@ function formatPrice(price: number) {
   }).format(price);
 }
 
-const steps = ["Details", "Verify", "Payment", "Members", "Profile", "Done"];
+const steps = ["Details", "Verify", "Payment", "Your Info", "Members", "Done"];
 
 function StepIndicator({ currentStep }: { currentStep: number }) {
   return (
@@ -119,10 +119,11 @@ export default function PurchaseFlowPage() {
   const [selectedTierIndex, setSelectedTierIndex] = useState(0);
   const [currentPackageId, setCurrentPackageId] = useState<string | undefined>(initialPackageId);
   const [showPackageSwitcher, setShowPackageSwitcher] = useState(false);
+  const [ownerMember, setOwnerMember] = useState<{ name: string; age: number; type: "adult" } | null>(null);
 
   const packageId = currentPackageId;
 
-  const stepIndex = { mobile: 0, otp: 1, payment: 2, members: 3, profile: 4, success: 5 }[step];
+  const stepIndex = { mobile: 0, otp: 1, payment: 2, profile: 3, members: 4, success: 5 }[step];
 
   const { data: pkg, isLoading } = useQuery<Package>({
     queryKey: ["/api/packages", packageId],
@@ -233,13 +234,20 @@ export default function PurchaseFlowPage() {
             });
             const purchase = await verifyRes.json();
             setPurchaseId(purchase.id || data.purchaseId);
-            const tiers = pkg ? getPackagePricingTiers(pkg) : [];
-            const tier = tiers[selectedTierIndex] || tiers[0];
-            membersForm.reset({
-              adults: Array.from({ length: tier?.adultsCount || 0 }, () => ({ name: "", age: 18, type: "adult" as const })),
-              kids: Array.from({ length: tier?.kidsCount || 0 }, () => ({ name: "", age: 5, type: "kid" as const })),
-            });
-            setStep("members");
+            try {
+              const custRes = await fetch(`/api/customers/by-mobile/${mobile}`);
+              const custData = await custRes.json();
+              if (custData.customer) {
+                profileForm.reset({
+                  name: custData.customer.name || "",
+                  email: custData.customer.email || "",
+                  age: custData.customer.age || 30,
+                  location: custData.customer.location || "",
+                  gender: custData.customer.gender || undefined,
+                });
+              }
+            } catch {}
+            setStep("profile");
           } catch {
             toast({
               title: "Payment Verification Failed",
@@ -285,17 +293,21 @@ export default function PurchaseFlowPage() {
 
   const membersMutation = useMutation({
     mutationFn: async (data: z.infer<typeof membersFormSchema>) => {
-      // Ensure type is set correctly for each member
       const adults = data.adults.map(m => ({ ...m, type: "adult" as const }));
       const kids = data.kids.map(m => ({ ...m, type: "kid" as const }));
-      const allMembers = [...adults, ...kids];
+      const allMembers = [
+        ...(ownerMember ? [ownerMember] : []),
+        ...adults,
+        ...kids,
+      ];
       const res = await apiRequest("POST", `/api/purchases/${purchaseId}/members`, {
         members: allMembers,
       });
       return res.json();
     },
     onSuccess: () => {
-      setStep("profile");
+      setStep("success");
+      queryClient.invalidateQueries({ queryKey: ["/api/purchases"] });
     },
     onError: (error: Error) => {
       toast({
@@ -311,14 +323,51 @@ export default function PurchaseFlowPage() {
       const res = await apiRequest("POST", "/api/customers/profile", { ...data, mobile });
       return res.json();
     },
-    onSuccess: () => {
-      setStep("success");
-      queryClient.invalidateQueries({ queryKey: ["/api/purchases"] });
+    onSuccess: (data) => {
+      const tiers = pkg ? getPackagePricingTiers(pkg) : [];
+      const tier = tiers[selectedTierIndex] || tiers[0];
+      const remainingAdults = (tier?.adultsCount || 1) - 1;
+      const kidsCount = tier?.kidsCount || 0;
+
+      if (!purchaseId) {
+        toast({
+          title: "Error",
+          description: "Purchase information is missing. Please contact support.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const ownerMember = { name: data.name || "", age: data.age || 30, type: "adult" as const };
+
+      if (remainingAdults > 0 || kidsCount > 0) {
+        membersForm.reset({
+          adults: Array.from({ length: remainingAdults }, () => ({ name: "", age: 18, type: "adult" as const })),
+          kids: Array.from({ length: kidsCount }, () => ({ name: "", age: 5, type: "kid" as const })),
+        });
+        setOwnerMember(ownerMember);
+        setStep("members");
+      } else {
+        apiRequest("POST", `/api/purchases/${purchaseId}/members`, {
+          members: [ownerMember],
+        }).then(() => {
+          setStep("success");
+          queryClient.invalidateQueries({ queryKey: ["/api/purchases"] });
+        }).catch(() => {
+          toast({
+            title: "Warning",
+            description: "Your profile was saved but member enrollment encountered an issue. Please contact support.",
+            variant: "destructive",
+          });
+          setStep("success");
+          queryClient.invalidateQueries({ queryKey: ["/api/purchases"] });
+        });
+      }
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to save your profile. Please try again.",
+        description: "Failed to save your details. Please try again.",
         variant: "destructive",
       });
     },
@@ -400,8 +449,8 @@ export default function PurchaseFlowPage() {
                   if (step === "mobile") navigate(`/package/${currentPackageId || initialPackageId}`);
                   else if (step === "otp") setStep("mobile");
                   else if (step === "payment") setStep("otp");
-                  else if (step === "members") setStep("payment");
-                  else if (step === "profile") setStep("members");
+                  else if (step === "profile") setStep("payment");
+                  else if (step === "members") setStep("profile");
                 }}
                 data-testid="button-back"
               >
@@ -638,12 +687,9 @@ export default function PurchaseFlowPage() {
           );
         })()}
 
-        {/* Members Step */}
-        {step === "members" && (() => {
-          const tiers = getPackagePricingTiers(pkg);
-          const selectedTier = tiers[selectedTierIndex] || tiers[0];
-          return (
-          <div className="space-y-6" data-testid="step-members">
+        {/* Profile Step (Account Owner = First Adult) */}
+        {step === "profile" && (
+          <div className="space-y-6" data-testid="step-profile">
             <Card className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950">
               <CardContent className="flex items-center gap-3 pt-4 pb-4">
                 <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0" />
@@ -656,27 +702,160 @@ export default function PurchaseFlowPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-primary" />
-                  Member Details
+                  <User className="h-5 w-5 text-primary" />
+                  Your Details
                 </CardTitle>
                 <CardDescription>
-                  Enter details for all covered members
+                  You will be enrolled as the primary member of this package
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Form {...profileForm}>
+                  <form onSubmit={profileForm.handleSubmit(handleProfileSubmit)} className="space-y-6">
+                    <FormField
+                      control={profileForm.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Name</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              placeholder="Enter your full name"
+                              data-testid="input-profile-name"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={profileForm.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email ID</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              type="email"
+                              placeholder="Enter your email address"
+                              data-testid="input-profile-email"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={profileForm.control}
+                      name="age"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Age</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              type="number"
+                              min={1}
+                              placeholder="Enter your age"
+                              data-testid="input-profile-age"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={profileForm.control}
+                      name="location"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Location</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              placeholder="City, State"
+                              data-testid="input-profile-location"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={profileForm.control}
+                      name="gender"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Gender</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-profile-gender">
+                                <SelectValue placeholder="Select your gender" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="male">Male</SelectItem>
+                              <SelectItem value="female">Female</SelectItem>
+                              <SelectItem value="other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button
+                      type="submit"
+                      size="lg"
+                      className="w-full h-12"
+                      disabled={profileMutation.isPending}
+                      data-testid="button-save-profile"
+                    >
+                      {profileMutation.isPending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : null}
+                      Continue
+                      <ChevronRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Members Step (Additional members beyond the account owner) */}
+        {step === "members" && (() => {
+          const tiers = getPackagePricingTiers(pkg);
+          const selectedTier = tiers[selectedTierIndex] || tiers[0];
+          const remainingAdults = (selectedTier?.adultsCount || 1) - 1;
+          const kidsCount = selectedTier?.kidsCount || 0;
+          return (
+          <div className="space-y-6" data-testid="step-members">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  Other Members
+                </CardTitle>
+                <CardDescription>
+                  Enter details for the other members covered in this package
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Form {...membersForm}>
                   <form onSubmit={membersForm.handleSubmit(handleMembersSubmit)} className="space-y-6">
-                    {/* Adults Section */}
-                    {selectedTier.adultsCount > 0 && (
+                    {remainingAdults > 0 && (
                       <div className="space-y-4">
                         <div className="flex items-center gap-2">
                           <User className="h-4 w-4 text-primary" />
-                          <h3 className="font-medium">Adults ({selectedTier.adultsCount})</h3>
+                          <h3 className="font-medium">Adults ({remainingAdults})</h3>
                           <Badge variant="secondary" className="text-xs">Age 16+</Badge>
                         </div>
-                        {Array.from({ length: selectedTier.adultsCount }).map((_, index) => (
+                        {Array.from({ length: remainingAdults }).map((_, index) => (
                           <div key={`adult-${index}`} className="rounded-lg border p-4 space-y-4">
-                            <p className="text-sm font-medium text-muted-foreground">Adult {index + 1}</p>
+                            <p className="text-sm font-medium text-muted-foreground">Adult {index + 2}</p>
                             <div className="grid gap-4 sm:grid-cols-2">
                               <FormField
                                 control={membersForm.control}
@@ -720,15 +899,14 @@ export default function PurchaseFlowPage() {
                       </div>
                     )}
 
-                    {/* Kids Section */}
-                    {selectedTier.kidsCount > 0 && (
+                    {kidsCount > 0 && (
                       <div className="space-y-4">
                         <div className="flex items-center gap-2">
                           <Baby className="h-4 w-4 text-primary" />
-                          <h3 className="font-medium">Kids ({selectedTier.kidsCount})</h3>
+                          <h3 className="font-medium">Kids ({kidsCount})</h3>
                           <Badge variant="secondary" className="text-xs">Under 16</Badge>
                         </div>
-                        {Array.from({ length: selectedTier.kidsCount }).map((_, index) => (
+                        {Array.from({ length: kidsCount }).map((_, index) => (
                           <div key={`kid-${index}`} className="rounded-lg border p-4 space-y-4">
                             <p className="text-sm font-medium text-muted-foreground">Kid {index + 1}</p>
                             <div className="grid gap-4 sm:grid-cols-2">
@@ -785,7 +963,7 @@ export default function PurchaseFlowPage() {
                       {membersMutation.isPending ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       ) : null}
-                      Continue to Profile
+                      Complete Enrollment
                       <ChevronRight className="ml-2 h-4 w-4" />
                     </Button>
                   </form>
@@ -796,135 +974,6 @@ export default function PurchaseFlowPage() {
           );
         })()}
 
-        {/* Profile Step */}
-        {step === "profile" && (
-          <div className="space-y-6" data-testid="step-profile">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MapPin className="h-5 w-5 text-primary" />
-                  Your Profile
-                </CardTitle>
-                <CardDescription>
-                  Please provide your details to complete registration
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Form {...profileForm}>
-                  <form onSubmit={profileForm.handleSubmit(handleProfileSubmit)} className="space-y-6">
-                    <FormField
-                      control={profileForm.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Your Name</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              placeholder="Enter your full name"
-                              data-testid="input-profile-name"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={profileForm.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email Address</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              type="email"
-                              placeholder="Enter your email address"
-                              data-testid="input-profile-email"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={profileForm.control}
-                      name="age"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Your Age</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              type="number"
-                              min={1}
-                              placeholder="Enter your age"
-                              data-testid="input-profile-age"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={profileForm.control}
-                      name="location"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Location</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              placeholder="City, State"
-                              data-testid="input-profile-location"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={profileForm.control}
-                      name="gender"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Gender</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger data-testid="select-profile-gender">
-                                <SelectValue placeholder="Select your gender" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="male">Male</SelectItem>
-                              <SelectItem value="female">Female</SelectItem>
-                              <SelectItem value="other">Other</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <Button
-                      type="submit"
-                      size="lg"
-                      className="w-full h-12"
-                      disabled={profileMutation.isPending}
-                      data-testid="button-save-profile"
-                    >
-                      {profileMutation.isPending ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : null}
-                      Complete Purchase
-                      <ChevronRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </form>
-                </Form>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
         {/* Success Step */}
         {step === "success" && (
           <div className="text-center space-y-6" data-testid="step-success">
@@ -933,7 +982,7 @@ export default function PurchaseFlowPage() {
             </div>
 
             <div>
-              <h2 className="text-2xl font-bold mb-2">Payment Successful!</h2>
+              <h2 className="text-2xl font-bold mb-2">Enrollment Complete!</h2>
               <p className="text-muted-foreground">
                 Your package has been activated
               </p>
