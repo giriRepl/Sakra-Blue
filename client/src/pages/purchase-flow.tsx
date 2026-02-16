@@ -42,7 +42,7 @@ const mobileSchema = z.object({
 });
 
 const otpSchema = z.object({
-  otp: z.string().length(2, "Please enter the complete OTP"),
+  otp: z.string().length(4, "Please enter the complete OTP"),
 });
 
 const memberItemSchema = z.object({
@@ -500,7 +500,7 @@ export default function PurchaseFlowPage() {
                       <FormItem className="flex flex-col items-center">
                         <FormControl>
                           <InputOTP
-                            maxLength={2}
+                            maxLength={4}
                             value={field.value}
                             onChange={field.onChange}
                             data-testid="input-otp"
@@ -508,6 +508,8 @@ export default function PurchaseFlowPage() {
                             <InputOTPGroup>
                               <InputOTPSlot index={0} />
                               <InputOTPSlot index={1} />
+                              <InputOTPSlot index={2} />
+                              <InputOTPSlot index={3} />
                             </InputOTPGroup>
                           </InputOTP>
                         </FormControl>
