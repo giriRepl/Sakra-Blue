@@ -113,9 +113,9 @@ Preferred communication style: Simple, everyday language.
   - Utility: `server/sms.ts` — `sendSms()`, `sendTemplatedSms()`, `generateNumericOtp()`
   - Templates stored in DB (`sms_templates` table), looked up by `name`
   - Four SMS use cases integrated:
-    1. **OTP** (Nap_OTP): Login & purchase verification — placeholder `{#OTP#}`
+    1. **OTP** (Nap_Otp): Login & purchase verification — placeholder `{#1#}`
     2. **Purchase Success** (Nap_Purchase): After payment — placeholders `{#Package_Name#}`, `{#Amount#}`
-    3. **Redemption OTP** (Nap_Redeem): Before service redemption — placeholder `{#OTP#}`
+    3. **Redemption OTP** (Nap_Redeem): Before service redemption — placeholder `{#1#}`
     4. **Redemption Confirmation** (Nap_Redeemed): After services redeemed — placeholders `{#Service_Name#}`, `{#Package_Name#}`
   - Redemption OTP: Generated server-side, stored in-memory, sent via SMS, verified via `/api/admin/redeem/verify-otp`
   - Failure logging: All SMS failures logged to `sms_failure_logs` table

@@ -115,7 +115,6 @@ export default function PurchaseFlowPage() {
 
   const [step, setStep] = useState<Step>("mobile");
   const [mobile, setMobile] = useState("");
-  const [generatedOtp, setGeneratedOtp] = useState("");
   const [purchaseId, setPurchaseId] = useState<string | null>(null);
   const [selectedTierIndex, setSelectedTierIndex] = useState(0);
   const [currentPackageId, setCurrentPackageId] = useState<string | undefined>(initialPackageId);
@@ -173,11 +172,10 @@ export default function PurchaseFlowPage() {
     },
     onSuccess: (data) => {
       setMobile(mobileForm.getValues("mobile"));
-      setGeneratedOtp(data.otp || "");
       setStep("otp");
       toast({
         title: "OTP Sent",
-        description: "Check the OTP displayed on screen",
+        description: "Please check your phone for the OTP",
       });
     },
     onError: () => {
@@ -517,12 +515,7 @@ export default function PurchaseFlowPage() {
                       </FormItem>
                     )}
                   />
-                  {generatedOtp && (
-                    <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-center" data-testid="display-generated-otp">
-                      <p className="text-xs text-muted-foreground mb-1">Generated OTP (for testing)</p>
-                      <p className="text-2xl font-bold tracking-widest text-primary">{generatedOtp}</p>
-                    </div>
-                  )}
+                  <p className="text-xs text-muted-foreground text-center">An OTP has been sent to your mobile number via SMS</p>
                   <Button
                     type="submit"
                     className="w-full h-12"

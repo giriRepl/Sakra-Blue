@@ -98,8 +98,8 @@ export async function registerRoutes(
       const otp = generateNumericOtp(4);
       await storage.upsertOtpSession(mobile, otp, new Date(Date.now() + 10 * 60 * 1000));
 
-      const smsResult = await sendTemplatedSms(mobile, "Nap_OTP", {
-        "{#OTP#}": otp,
+      const smsResult = await sendTemplatedSms(mobile, "Nap_Otp", {
+        "{#1#}": otp,
       });
 
       if (!smsResult.success) {
@@ -631,7 +631,7 @@ export async function registerRoutes(
       });
 
       const smsResult = await sendTemplatedSms(customer.mobile, "Nap_Redeem", {
-        "{#OTP#}": otp,
+        "{#1#}": otp,
       });
 
       res.json({
