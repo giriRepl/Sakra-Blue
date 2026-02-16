@@ -649,7 +649,7 @@ export async function registerRoutes(
         "{#OTP#}": otp,
         "{#F_Name#}": customer.name || "",
         "{#L_Name#}": "",
-        "{#Service#}": "",
+        "{#Service#}": "Service",
       });
 
       res.json({
