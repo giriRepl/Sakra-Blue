@@ -850,6 +850,7 @@ function SmsLogsPage() {
                   <TableHead data-testid="th-date">Date</TableHead>
                   <TableHead data-testid="th-time">Time</TableHead>
                   <TableHead data-testid="th-destination">Destination</TableHead>
+                  <TableHead data-testid="th-template-id">Template ID</TableHead>
                   <TableHead data-testid="th-sms-text">SMS Text</TableHead>
                   <TableHead data-testid="th-status">Status</TableHead>
                   <TableHead data-testid="th-api-result">API Result</TableHead>
@@ -866,6 +867,9 @@ function SmsLogsPage() {
                     </TableCell>
                     <TableCell data-testid={`cell-destination-${log.id}`}>
                       {log.mobile}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground font-mono" data-testid={`cell-template-id-${log.id}`}>
+                      {log.templateId || "-"}
                     </TableCell>
                     <TableCell className="text-sm" data-testid={`cell-text-${log.id}`}>
                       {log.message}

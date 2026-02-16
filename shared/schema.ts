@@ -262,6 +262,7 @@ export const smsLogs = pgTable("sms_logs", {
   mobile: text("mobile").notNull(),
   message: text("message").notNull(),
   templateName: text("template_name"),
+  templateId: text("template_id"),
   status: text("status").notNull(),
   apiResponse: text("api_response"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
