@@ -145,7 +145,7 @@ function PurchaseCard({ purchase }: PurchaseCardProps) {
                         </Badge>
                       ) : (
                         <Badge variant="outline" className="text-xs shrink-0">
-                          {usedCount}/{totalQty}
+                          {totalQty - usedCount} Remaining (out of {totalQty})
                         </Badge>
                       )}
                     </div>
