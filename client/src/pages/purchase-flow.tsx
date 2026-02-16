@@ -644,6 +644,15 @@ export default function PurchaseFlowPage() {
           const selectedTier = tiers[selectedTierIndex] || tiers[0];
           return (
           <div className="space-y-6" data-testid="step-members">
+            <Card className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950">
+              <CardContent className="flex items-center gap-3 pt-4 pb-4">
+                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0" />
+                <div>
+                  <p className="font-semibold text-green-800 dark:text-green-200" data-testid="text-payment-success">Your payment is successful</p>
+                  <p className="text-sm text-green-600 dark:text-green-400">Please complete the remaining steps below</p>
+                </div>
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
