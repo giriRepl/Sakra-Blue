@@ -35,6 +35,9 @@ import {
   smsFailureLogs,
   type SmsFailureLog,
   type InsertSmsFailureLog,
+  smsLogs,
+  type SmsLog,
+  type InsertSmsLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, ne } from "drizzle-orm";
@@ -101,6 +104,10 @@ export interface IStorage {
   // SMS Failure Logs
   createSmsFailureLog(log: InsertSmsFailureLog): Promise<SmsFailureLog>;
   getSmsFailureLogs(): Promise<SmsFailureLog[]>;
+
+  // SMS Logs
+  createSmsLog(log: InsertSmsLog): Promise<SmsLog>;
+  getSmsLogs(): Promise<SmsLog[]>;
 
   // OTP Sessions
   upsertOtpSession(mobile: string, otp: string, expiresAt: Date): Promise<void>;
@@ -426,6 +433,16 @@ export class DatabaseStorage implements IStorage {
 
   async getSmsFailureLogs(): Promise<SmsFailureLog[]> {
     return db.select().from(smsFailureLogs).orderBy(desc(smsFailureLogs.createdAt));
+  }
+
+  // SMS Logs
+  async createSmsLog(log: InsertSmsLog): Promise<SmsLog> {
+    const [created] = await db.insert(smsLogs).values(log).returning();
+    return created;
+  }
+
+  async getSmsLogs(): Promise<SmsLog[]> {
+    return db.select().from(smsLogs).orderBy(desc(smsLogs.createdAt));
   }
 
   // OTP Sessions

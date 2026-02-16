@@ -256,6 +256,24 @@ export const insertSmsFailureLogSchema = createInsertSchema(smsFailureLogs).omit
 export type InsertSmsFailureLog = z.infer<typeof insertSmsFailureLogSchema>;
 export type SmsFailureLog = typeof smsFailureLogs.$inferSelect;
 
+// SMS Logs table - logs every SMS API call
+export const smsLogs = pgTable("sms_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  mobile: text("mobile").notNull(),
+  message: text("message").notNull(),
+  templateName: text("template_name"),
+  status: text("status").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertSmsLogSchema = createInsertSchema(smsLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSmsLog = z.infer<typeof insertSmsLogSchema>;
+export type SmsLog = typeof smsLogs.$inferSelect;
+
 // Corporates table - corporate onboarding
 export const corporates = pgTable("corporates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
