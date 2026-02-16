@@ -644,8 +644,17 @@ export async function registerRoutes(
         expiresAt: new Date(Date.now() + 10 * 60 * 1000),
       });
 
+      const customerName = customer.name || "";
+      const nameParts = customerName.split(" ");
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
+
       const smsResult = await sendTemplatedSms(customer.mobile, "Nap_Redeem", {
         "{#1#}": otp,
+        "{#OTP#}": otp,
+        "{#F_Name#}": firstName,
+        "{#L_Name#}": lastName,
+        "{#Service#}": "",
       });
 
       res.json({

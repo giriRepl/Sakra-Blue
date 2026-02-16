@@ -93,6 +93,9 @@ export async function sendTemplatedSms(
     message = message.replace(new RegExp(placeholder.replace(/[{}#]/g, "\\$&"), "g"), value);
   }
 
+  message = message.replace(/\{#[^#]*#\}/g, "");
+  message = message.replace(/\s{2,}/g, " ").trim();
+
   return sendSms(mobile, message, template.templateId, templateName);
 }
 
