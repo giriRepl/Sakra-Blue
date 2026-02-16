@@ -270,6 +270,7 @@ export async function registerRoutes(
 
       if (customer) {
         sendTemplatedSms(customer.mobile, "Nap_Purchase", {
+          "{#Package#}": "",
           "{#Package_Name#}": pkg.title,
           "{#Amount#}": pendingPurchase.amountPaid.toString(),
         }).catch(err => console.error("Purchase SMS error:", err));
