@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
 import { ArrowLeft, Phone, Shield, Loader2 } from "lucide-react";
@@ -27,9 +27,16 @@ const otpSchema = z.object({
 export default function CustomerLoginPage() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const { login } = useCustomerAuth();
+  const { login, customer } = useCustomerAuth();
   const [step, setStep] = useState<"mobile" | "otp">("mobile");
   const [mobile, setMobile] = useState("");
+  const [loginSuccess, setLoginSuccess] = useState(false);
+
+  useEffect(() => {
+    if (loginSuccess && customer) {
+      navigate("/dashboard");
+    }
+  }, [loginSuccess, customer, navigate]);
 
   const mobileForm = useForm<z.infer<typeof mobileSchema>>({
     resolver: zodResolver(mobileSchema),
@@ -74,7 +81,7 @@ export default function CustomerLoginPage() {
         title: "Welcome!",
         description: "You have successfully logged in.",
       });
-      navigate("/dashboard");
+      setLoginSuccess(true);
     },
     onError: () => {
       toast({
