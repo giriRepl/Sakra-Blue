@@ -7,7 +7,7 @@ interface SendEmailResult {
 }
 
 function createTransporter() {
-  const host = process.env.SMTP_HOST;
+  const host = (process.env.SMTP_HOST || "").replace(/^https?:\/\//, "").trim();
   const port = parseInt(process.env.SMTP_PORT || "587");
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
