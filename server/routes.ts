@@ -7,6 +7,7 @@ import { addMonths } from "date-fns";
 import crypto from "crypto";
 import Razorpay from "razorpay";
 import { sendSms, sendTemplatedSms, generateNumericOtp } from "./sms";
+import { sendEmail } from "./email";
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID || "",
@@ -1069,6 +1070,26 @@ export async function registerRoutes(
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to delete SMS template" });
+    }
+  });
+
+  // ============ SUPER ADMIN - EMAIL TEST ============
+
+  app.post("/api/superadmin/send-test-email", requireSuperAdminAuth, async (req: Request, res: Response) => {
+    try {
+      const { to, subject, body } = req.body;
+      if (!to || !subject || !body) {
+        return res.status(400).json({ error: "Email address, subject, and body are required" });
+      }
+
+      const result = await sendEmail(to, subject, body);
+      if (result.success) {
+        res.json({ success: true, messageId: result.messageId });
+      } else {
+        res.status(500).json({ error: result.error });
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Failed to send email" });
     }
   });
 
