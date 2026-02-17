@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
-import { Lock, Loader2, ArrowLeft, MessageSquare, Send, Phone, FileText, Plus, Pencil, Trash2, X, Save, AlertTriangle, ClipboardList, ChevronLeft, ChevronRight } from "lucide-react";
+import { Lock, Loader2, ArrowLeft, MessageSquare, Send, Phone, FileText, Plus, Pencil, Trash2, X, Save, AlertTriangle, ClipboardList, ChevronLeft, ChevronRight, Mail } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -929,15 +929,109 @@ function SmsLogsPage() {
   );
 }
 
+function EmailTestPage() {
+  const [emailTo, setEmailTo] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [result, setResult] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  const sendMutation = useMutation({
+    mutationFn: async () => {
+      const res = await superAdminFetch("/api/superadmin/send-test-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: emailTo, subject: emailSubject, body: emailBody }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to send email");
+      return data;
+    },
+    onSuccess: (data) => {
+      setResult({ type: "success", message: `Email sent successfully! Message ID: ${data.messageId || "N/A"}` });
+    },
+    onError: (err: any) => {
+      setResult({ type: "error", message: err.message || "Failed to send email" });
+    },
+  });
+
+  return (
+    <div className="max-w-2xl" data-testid="page-email-test">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="h-5 w-5" />
+            Test Email
+          </CardTitle>
+          <CardDescription>Send a test email via SMTP to verify the mailer configuration.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor="email-to">To (Email Address)</label>
+            <Input
+              id="email-to"
+              type="email"
+              placeholder="recipient@example.com"
+              value={emailTo}
+              onChange={(e) => setEmailTo(e.target.value)}
+              data-testid="input-email-to"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor="email-subject">Subject</label>
+            <Input
+              id="email-subject"
+              placeholder="Test email subject"
+              value={emailSubject}
+              onChange={(e) => setEmailSubject(e.target.value)}
+              data-testid="input-email-subject"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor="email-body">Body</label>
+            <Textarea
+              id="email-body"
+              placeholder="Enter email body (HTML supported)"
+              value={emailBody}
+              onChange={(e) => setEmailBody(e.target.value)}
+              rows={6}
+              data-testid="input-email-body"
+            />
+          </div>
+          <Button
+            onClick={() => sendMutation.mutate()}
+            disabled={!emailTo || !emailSubject || !emailBody || sendMutation.isPending}
+            data-testid="button-send-email"
+          >
+            {sendMutation.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4 mr-2" />
+            )}
+            Send Test Email
+          </Button>
+          {result && (
+            <div
+              className={`p-3 rounded-md text-sm ${result.type === "success" ? "bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200" : "bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200"}`}
+              data-testid="email-result"
+            >
+              {result.message}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function SuperAdminPanel({ onLogout }: { onLogout: () => void }) {
-  const [activeTab, setActiveTab] = useState<"sms" | "templates" | "sms-logs" | "failure-logs">("sms");
+  const [activeTab, setActiveTab] = useState<"sms" | "templates" | "sms-logs" | "failure-logs" | "email">("sms");
 
   const style = {
     "--sidebar-width": "14rem",
     "--sidebar-width-icon": "3rem",
   };
 
-  const pageTitle = activeTab === "sms" ? "SMS" : activeTab === "templates" ? "Templates" : activeTab === "sms-logs" ? "SMS Logs" : "Failure Logs";
+  const pageTitle = activeTab === "sms" ? "SMS" : activeTab === "templates" ? "Templates" : activeTab === "sms-logs" ? "SMS Logs" : activeTab === "failure-logs" ? "Failure Logs" : "Email";
 
   return (
     <SidebarProvider style={style as React.CSSProperties}>
@@ -978,6 +1072,12 @@ function SuperAdminPanel({ onLogout }: { onLogout: () => void }) {
                   <span>Failure Logs</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton isActive={activeTab === "email"} onClick={() => setActiveTab("email")} data-testid="nav-email">
+                  <Mail className="h-4 w-4" />
+                  <span>Email</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarContent>
           <div className="p-4 border-t border-sidebar-border">
@@ -1007,6 +1107,7 @@ function SuperAdminPanel({ onLogout }: { onLogout: () => void }) {
               {activeTab === "templates" && <TemplatesPage />}
               {activeTab === "sms-logs" && <SmsLogsPage />}
               {activeTab === "failure-logs" && <FailureLogsPage />}
+              {activeTab === "email" && <EmailTestPage />}
             </div>
           </main>
         </div>
