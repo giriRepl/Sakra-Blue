@@ -8,7 +8,7 @@ interface SendEmailResult {
 
 function createTransporter() {
   const host = (process.env.SMTP_HOST || "").replace(/^https?:\/\//, "").trim();
-  const port = parseInt(process.env.SMTP_PORT || "587");
+  const portStr = (process.env.SMTP_PORT || "").trim();
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
 
@@ -16,18 +16,25 @@ function createTransporter() {
     return null;
   }
 
-  return nodemailer.createTransport({
+  const config: any = {
     host,
-    port,
-    secure: port === 465,
     auth: { user, pass },
     connectionTimeout: 15000,
     greetingTimeout: 15000,
     socketTimeout: 15000,
     tls: {
       rejectUnauthorized: false,
+      ciphers: "SSLv3",
     },
-  });
+  };
+
+  if (portStr && !isNaN(parseInt(portStr))) {
+    const port = parseInt(portStr);
+    config.port = port;
+    config.secure = port === 465;
+  }
+
+  return nodemailer.createTransport(config);
 }
 
 export async function sendEmail(
@@ -37,19 +44,19 @@ export async function sendEmail(
 ): Promise<SendEmailResult> {
   const transporter = createTransporter();
   if (!transporter) {
-    return { success: false, error: "SMTP not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS." };
+    return { success: false, error: "SMTP not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASS." };
   }
 
   const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
   const host = (process.env.SMTP_HOST || "").replace(/^https?:\/\//, "").trim();
-  const port = process.env.SMTP_PORT || "587";
+  const portStr = (process.env.SMTP_PORT || "").trim();
 
   try {
     await transporter.verify();
   } catch (error: any) {
     return {
       success: false,
-      error: `Cannot connect to SMTP server ${host}:${port} — ${error.message}. Try port 465 (SSL) or check if the mail server allows external connections.`,
+      error: `Cannot connect to SMTP server ${host}${portStr ? ":" + portStr : ""} — ${error.message}`,
     };
   }
 
