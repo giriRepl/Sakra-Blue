@@ -107,7 +107,7 @@ export interface IStorage {
 
   // SMS Logs
   createSmsLog(log: InsertSmsLog): Promise<SmsLog>;
-  getSmsLogs(): Promise<SmsLog[]>;
+  getSmsLogs(limit: number, offset: number): Promise<{ logs: SmsLog[]; total: number }>;
 
   // OTP Sessions
   upsertOtpSession(mobile: string, otp: string, expiresAt: Date): Promise<void>;
@@ -441,8 +441,10 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async getSmsLogs(): Promise<SmsLog[]> {
-    return db.select().from(smsLogs).orderBy(desc(smsLogs.createdAt));
+  async getSmsLogs(limit: number, offset: number): Promise<{ logs: SmsLog[]; total: number }> {
+    const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(smsLogs);
+    const logs = await db.select().from(smsLogs).orderBy(desc(smsLogs.createdAt)).limit(limit).offset(offset);
+    return { logs, total: countResult.count };
   }
 
   // OTP Sessions

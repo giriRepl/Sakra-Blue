@@ -1010,8 +1010,11 @@ export async function registerRoutes(
 
   app.get("/api/superadmin/sms-logs", requireSuperAdminAuth, async (req: Request, res: Response) => {
     try {
-      const logs = await storage.getSmsLogs();
-      res.json(logs);
+      const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+      const page = Math.max(parseInt(req.query.page as string) || 1, 1);
+      const offset = (page - 1) * limit;
+      const result = await storage.getSmsLogs(limit, offset);
+      res.json({ logs: result.logs, total: result.total, page, limit });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch SMS logs" });
     }

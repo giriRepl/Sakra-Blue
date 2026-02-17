@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
-import { Lock, Loader2, ArrowLeft, MessageSquare, Send, Phone, FileText, Plus, Pencil, Trash2, X, Save, AlertTriangle, ClipboardList } from "lucide-react";
+import { Lock, Loader2, ArrowLeft, MessageSquare, Send, Phone, FileText, Plus, Pencil, Trash2, X, Save, AlertTriangle, ClipboardList, ChevronLeft, ChevronRight } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -792,14 +792,21 @@ function FailureLogsPage() {
 }
 
 function SmsLogsPage() {
-  const { data: logs = [], isLoading } = useQuery<SmsLog[]>({
-    queryKey: ["/api/superadmin/sms-logs"],
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+
+  const { data, isLoading } = useQuery<{ logs: SmsLog[]; total: number; page: number; limit: number }>({
+    queryKey: ["/api/superadmin/sms-logs", page],
     queryFn: async () => {
-      const res = await superAdminFetch("/api/superadmin/sms-logs");
+      const res = await superAdminFetch(`/api/superadmin/sms-logs?page=${page}&limit=${pageSize}`);
       if (!res.ok) throw new Error("Failed to fetch SMS logs");
       return res.json();
     },
   });
+
+  const logs = data?.logs ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.ceil(total / pageSize);
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -837,9 +844,9 @@ function SmsLogsPage() {
             SMS Logs
           </CardTitle>
           <CardDescription>
-            {logs.length === 0
+            {total === 0
               ? "No SMS logs recorded yet."
-              : `${logs.length} SMS message${logs.length === 1 ? "" : "s"} logged`}
+              : `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} of ${total} message${total === 1 ? "" : "s"}`}
           </CardDescription>
         </CardHeader>
         {logs.length > 0 && (
@@ -886,6 +893,35 @@ function SmsLogsPage() {
                 ))}
               </TableBody>
             </Table>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between gap-4 pt-4 border-t mt-4">
+                <span className="text-sm text-muted-foreground">
+                  Page {page} of {totalPages}
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page <= 1}
+                    onClick={() => setPage(p => p - 1)}
+                    data-testid="button-prev-page"
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage(p => p + 1)}
+                    data-testid="button-next-page"
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         )}
       </Card>
