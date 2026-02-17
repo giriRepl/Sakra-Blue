@@ -21,6 +21,12 @@ function createTransporter() {
     port,
     secure: port === 465,
     auth: { user, pass },
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 15000,
+    tls: {
+      rejectUnauthorized: false,
+    },
   });
 }
 
@@ -35,6 +41,17 @@ export async function sendEmail(
   }
 
   const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
+  const host = (process.env.SMTP_HOST || "").replace(/^https?:\/\//, "").trim();
+  const port = process.env.SMTP_PORT || "587";
+
+  try {
+    await transporter.verify();
+  } catch (error: any) {
+    return {
+      success: false,
+      error: `Cannot connect to SMTP server ${host}:${port} — ${error.message}. Try port 465 (SSL) or check if the mail server allows external connections.`,
+    };
+  }
 
   try {
     const info = await transporter.sendMail({
