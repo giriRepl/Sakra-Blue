@@ -97,15 +97,22 @@ export default function LandingPage() {
       </header>
 
       {/* SECTION 1 - HERO */}
-      <section className="relative bg-gradient-to-br from-primary/10 via-background to-accent/10 py-16 sm:py-24" data-testid="section-hero">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent" />
+      <section className="relative py-20 sm:py-28" data-testid="section-hero">
+        <div className="absolute inset-0">
+          <img
+            src="/images/hero-hospital.jpg"
+            alt="Sakra World Hospital"
+            className="h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/60 to-black/50" />
+        </div>
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-3xl text-center">
-            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
+            <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl drop-shadow-md">
               Protect Your Family's Health for an Entire Year —{" "}
-              <span className="font-extrabold">Starting at {formatPrice(100)}</span>
+              <span className="font-extrabold text-white">Starting at {formatPrice(100)}</span>
             </h1>
-            <p className="mt-6 text-lg leading-8 text-muted-foreground">
+            <p className="mt-6 text-lg leading-8 text-white/80">
               Unlimited GP &middot; Specialist Access &middot; 40% Diagnostics &middot; Ambulance Support
             </p>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:justify-center">
@@ -122,6 +129,7 @@ export default function LandingPage() {
                   size="lg"
                   variant="outline"
                   onClick={() => navigate("/login")}
+                  className="border-white/40 text-white backdrop-blur-sm"
                   data-testid="button-hero-login"
                 >
                   Already a member? Login
@@ -131,6 +139,7 @@ export default function LandingPage() {
                   size="lg"
                   variant="outline"
                   onClick={() => navigate("/dashboard")}
+                  className="border-white/40 text-white backdrop-blur-sm"
                   data-testid="button-hero-dashboard"
                 >
                   Go to My Dashboard
