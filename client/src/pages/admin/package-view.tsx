@@ -35,6 +35,12 @@ export default function PackageViewPage() {
   });
   const hasPurchases = purchaseData?.hasPurchases ?? false;
 
+  const { data: editConfig } = useQuery<{ enabled: boolean }>({
+    queryKey: ["/api/config/edit-after-publish"],
+  });
+  const editAfterPublish = editConfig?.enabled ?? false;
+  const canEdit = !hasPurchases || editAfterPublish;
+
   if (authLoading || isLoading) {
     return <LoadingPage />;
   }
@@ -78,7 +84,7 @@ export default function PackageViewPage() {
               <Copy className="h-4 w-4 mr-2" />
               Clone
             </Button>
-            {pkg.status !== "deleted" && !hasPurchases && (
+            {pkg.status !== "deleted" && canEdit && (
               <Button
                 onClick={() => navigate(`/admin/packages/${pkg.id}/edit`)}
                 data-testid="button-edit"

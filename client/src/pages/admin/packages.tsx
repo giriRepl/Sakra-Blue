@@ -60,6 +60,12 @@ function PackageCard({ pkg, showActions = true }: PackageCardProps) {
   });
   const hasPurchases = purchaseData?.hasPurchases ?? false;
 
+  const { data: editConfig } = useQuery<{ enabled: boolean }>({
+    queryKey: ["/api/config/edit-after-publish"],
+  });
+  const editAfterPublish = editConfig?.enabled ?? false;
+  const canEdit = !hasPurchases || editAfterPublish;
+
   const publishMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("PATCH", `/api/packages/${pkg.id}/publish`, {});
@@ -194,7 +200,7 @@ function PackageCard({ pkg, showActions = true }: PackageCardProps) {
             <Eye className="h-4 w-4 mr-1" />
             View
           </Button>
-          {!isDeleted && !hasPurchases && (
+          {!isDeleted && canEdit && (
             <Button
               variant="outline"
               size="sm"

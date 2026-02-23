@@ -478,7 +478,10 @@ export async function registerRoutes(
       }
       const hasPurchases = await storage.packageHasPurchases(req.params.id);
       if (hasPurchases) {
-        return res.status(400).json({ error: "This package has purchases and cannot be edited. Clone it to create a new version." });
+        const editAfterPublish = await storage.getConfig("edit_after_publish");
+        if (editAfterPublish !== "true") {
+          return res.status(400).json({ error: "This package has purchases and cannot be edited. Clone it to create a new version." });
+        }
       }
 
       const result = insertPackageSchema.partial().safeParse(req.body);
@@ -1090,6 +1093,43 @@ export async function registerRoutes(
       }
     } catch (error) {
       res.status(500).json({ error: "Failed to send email" });
+    }
+  });
+
+  // ============ SUPER ADMIN - APP CONFIGURATION ============
+
+  app.get("/api/superadmin/config", requireSuperAdminAuth, async (_req: Request, res: Response) => {
+    try {
+      const configs = await storage.getAllConfig();
+      const configMap: Record<string, string> = {};
+      for (const c of configs) {
+        configMap[c.key] = c.value;
+      }
+      res.json(configMap);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch config" });
+    }
+  });
+
+  app.put("/api/superadmin/config", requireSuperAdminAuth, async (req: Request, res: Response) => {
+    try {
+      const { key, value } = req.body;
+      if (!key || value === undefined) {
+        return res.status(400).json({ error: "Key and value are required" });
+      }
+      await storage.setConfig(key, String(value));
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update config" });
+    }
+  });
+
+  app.get("/api/config/edit-after-publish", async (_req: Request, res: Response) => {
+    try {
+      const value = await storage.getConfig("edit_after_publish");
+      res.json({ enabled: value === "true" });
+    } catch (error) {
+      res.json({ enabled: false });
     }
   });
 

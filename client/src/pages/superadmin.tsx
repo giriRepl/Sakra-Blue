@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
-import { Lock, Loader2, ArrowLeft, MessageSquare, Send, Phone, FileText, Plus, Pencil, Trash2, X, Save, AlertTriangle, ClipboardList, ChevronLeft, ChevronRight, Mail } from "lucide-react";
+import { Lock, Loader2, ArrowLeft, MessageSquare, Send, Phone, FileText, Plus, Pencil, Trash2, X, Save, AlertTriangle, ClipboardList, ChevronLeft, ChevronRight, Mail, Settings } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -14,6 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import type { SmsTemplate, SmsFailureLog, SmsLog } from "@shared/schema";
 import {
   Table,
@@ -1023,15 +1024,94 @@ function EmailTestPage() {
   );
 }
 
+function ConfigurationPage() {
+  const { toast } = useToast();
+
+  const { data: config, isLoading } = useQuery<Record<string, string>>({
+    queryKey: ["/api/superadmin/config"],
+    queryFn: async () => {
+      const res = await superAdminFetch("/api/superadmin/config");
+      if (!res.ok) throw new Error("Failed to fetch config");
+      return res.json();
+    },
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: async ({ key, value }: { key: string; value: string }) => {
+      const res = await superAdminFetch("/api/superadmin/config", {
+        method: "PUT",
+        body: JSON.stringify({ key, value }),
+      });
+      if (!res.ok) throw new Error("Failed to update config");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/superadmin/config"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/config/edit-after-publish"] });
+      toast({ title: "Configuration Updated", description: "Setting has been saved." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update configuration.", variant: "destructive" });
+    },
+  });
+
+  const editAfterPublish = config?.edit_after_publish === "true";
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card data-testid="card-config-edit-after-publish">
+        <CardHeader>
+          <CardTitle>Package Editing</CardTitle>
+          <CardDescription>Control whether published packages with purchases can be edited</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between p-4 rounded-lg border">
+            <div className="space-y-1">
+              <p className="font-medium">Edit after publish</p>
+              <p className="text-sm text-muted-foreground">
+                When enabled, admins can edit published packages even after customers have purchased them. When disabled, packages with purchases are locked and can only be cloned.
+              </p>
+            </div>
+            <Switch
+              checked={editAfterPublish}
+              onCheckedChange={(checked) => {
+                toggleMutation.mutate({ key: "edit_after_publish", value: String(checked) });
+              }}
+              disabled={toggleMutation.isPending}
+              data-testid="switch-edit-after-publish"
+            />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function SuperAdminPanel({ onLogout }: { onLogout: () => void }) {
-  const [activeTab, setActiveTab] = useState<"sms" | "templates" | "sms-logs" | "failure-logs" | "email">("sms");
+  const [activeTab, setActiveTab] = useState<"sms" | "templates" | "sms-logs" | "failure-logs" | "email" | "config">("sms");
 
   const style = {
     "--sidebar-width": "14rem",
     "--sidebar-width-icon": "3rem",
   };
 
-  const pageTitle = activeTab === "sms" ? "SMS" : activeTab === "templates" ? "Templates" : activeTab === "sms-logs" ? "SMS Logs" : activeTab === "failure-logs" ? "Failure Logs" : "Email";
+  const pageTitles: Record<string, string> = {
+    sms: "SMS",
+    templates: "Templates",
+    "sms-logs": "SMS Logs",
+    "failure-logs": "Failure Logs",
+    email: "Email",
+    config: "Configuration",
+  };
+  const pageTitle = pageTitles[activeTab] || "Super Admin";
 
   return (
     <SidebarProvider style={style as React.CSSProperties}>
@@ -1078,6 +1158,12 @@ function SuperAdminPanel({ onLogout }: { onLogout: () => void }) {
                   <span>Email</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton isActive={activeTab === "config"} onClick={() => setActiveTab("config")} data-testid="nav-config">
+                  <Settings className="h-4 w-4" />
+                  <span>Configuration</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarContent>
           <div className="p-4 border-t border-sidebar-border">
@@ -1108,6 +1194,7 @@ function SuperAdminPanel({ onLogout }: { onLogout: () => void }) {
               {activeTab === "sms-logs" && <SmsLogsPage />}
               {activeTab === "failure-logs" && <FailureLogsPage />}
               {activeTab === "email" && <EmailTestPage />}
+              {activeTab === "config" && <ConfigurationPage />}
             </div>
           </main>
         </div>

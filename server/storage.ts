@@ -38,6 +38,8 @@ import {
   smsLogs,
   type SmsLog,
   type InsertSmsLog,
+  appConfig,
+  type AppConfig,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, ne } from "drizzle-orm";
@@ -119,6 +121,11 @@ export interface IStorage {
   createAdminSession(token: string, adminId: string, email: string, expiresAt: Date): Promise<void>;
   getAdminSession(token: string): Promise<{ adminId: string; email: string; expiresAt: Date } | undefined>;
   deleteAdminSession(token: string): Promise<void>;
+
+  // App Config
+  getConfig(key: string): Promise<string | undefined>;
+  setConfig(key: string, value: string): Promise<void>;
+  getAllConfig(): Promise<AppConfig[]>;
 
   // Stats
   getDashboardStats(): Promise<DashboardStats>;
@@ -478,6 +485,23 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAdminSession(token: string): Promise<void> {
     await db.delete(adminSessions).where(eq(adminSessions.token, token));
+  }
+
+  // App Config
+  async getConfig(key: string): Promise<string | undefined> {
+    const [row] = await db.select().from(appConfig).where(eq(appConfig.key, key));
+    return row?.value;
+  }
+
+  async setConfig(key: string, value: string): Promise<void> {
+    await db
+      .insert(appConfig)
+      .values({ key, value, updatedAt: new Date() })
+      .onConflictDoUpdate({ target: appConfig.key, set: { value, updatedAt: new Date() } });
+  }
+
+  async getAllConfig(): Promise<AppConfig[]> {
+    return db.select().from(appConfig);
   }
 
   // Stats

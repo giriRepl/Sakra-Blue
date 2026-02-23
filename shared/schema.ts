@@ -328,6 +328,15 @@ export const insertCorporateEmployeeSchema = createInsertSchema(corporateEmploye
 export type InsertCorporateEmployee = z.infer<typeof insertCorporateEmployeeSchema>;
 export type CorporateEmployee = typeof corporateEmployees.$inferSelect;
 
+// App Configuration table - key-value settings
+export const appConfig = pgTable("app_config", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type AppConfig = typeof appConfig.$inferSelect;
+
 // Corporate with details
 export type CorporateWithDetails = Corporate & {
   package: Package;
