@@ -179,11 +179,11 @@ export default function PackageDetailsPage() {
                           <Badge variant="secondary" className="text-xs">
                             Unlimited
                           </Badge>
-                        ) : service.quantity > 1 ? (
+                        ) : (
                           <Badge variant="secondary" className="text-xs">
-                            x{service.quantity}
+                            {service.quantity === 1 ? "1" : `${service.quantity} sessions`}
                           </Badge>
-                        ) : null}
+                        )}
                       </div>
                       {service.description && (
                         <p className="text-sm text-muted-foreground mt-1">

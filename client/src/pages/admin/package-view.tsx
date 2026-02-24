@@ -164,9 +164,9 @@ export default function PackageViewPage() {
                               <Badge variant="outline">{service.percentage}% off</Badge>
                             ) : service.isUnlimited ? (
                               <Badge variant="outline">Unlimited</Badge>
-                            ) : service.quantity > 1 ? (
-                              <Badge variant="outline">x{service.quantity}</Badge>
-                            ) : null}
+                            ) : (
+                              <Badge variant="outline">{service.quantity === 1 ? "1" : `${service.quantity} sessions`}</Badge>
+                            )}
                           </div>
                           {service.description && (
                             <p className="text-sm text-muted-foreground mt-1">
