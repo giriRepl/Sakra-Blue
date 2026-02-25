@@ -28,11 +28,9 @@ function createTransporter() {
     },
   };
 
-  if (portStr && !isNaN(parseInt(portStr))) {
-    const port = parseInt(portStr);
-    config.port = port;
-    config.secure = port === 465;
-  }
+  const port = portStr && !isNaN(parseInt(portStr)) ? parseInt(portStr) : 587;
+  config.port = port;
+  config.secure = port === 465;
 
   return nodemailer.createTransport(config);
 }
