@@ -21,6 +21,7 @@ import {
   MessageCircle,
   ArrowRight,
   ChevronDown,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -109,20 +110,26 @@ export default function LandingPage() {
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-3xl text-center">
             <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl drop-shadow-md">
-              Protect Your Family's Health for an Entire Year —{" "}
-              <span className="font-extrabold text-white">Starting at {formatPrice(100)}</span>
+              Protect Your Family's Health for an Entire Year
             </h1>
-            <p className="mt-6 text-lg leading-8 text-white/80">
-              Unlimited GP &middot; Specialist Access &middot; 40% Diagnostics &middot; Ambulance Support
+            <p className="mt-3 text-2xl sm:text-3xl lg:text-4xl font-extrabold text-amber-400 drop-shadow-md">
+              Starting at {formatPrice(100)}
             </p>
+            <div className="mt-6 space-y-2 text-lg text-white/90">
+              <p>Unlimited General Physician Consultation</p>
+              <p>Super Speciality Consultation</p>
+              <p>Diagnostics Discount Up to 40% Off</p>
+              <p className="font-semibold">Much More</p>
+            </div>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:justify-center">
               <Button
                 size="lg"
                 onClick={() => scrollToSection("pricing")}
+                className="text-lg px-10 py-7 font-bold shadow-lg"
                 data-testid="button-hero-cta"
               >
                 Get CarePlus Now
-                <ChevronRight className="ml-2 h-4 w-4" />
+                <ChevronRight className="ml-2 h-5 w-5" />
               </Button>
               {!customer ? (
                 <Button
@@ -164,7 +171,7 @@ export default function LandingPage() {
             </div>
             <div className="flex items-center gap-2" data-testid="trust-sakra">
               <CheckCircle2 className="h-4 w-4 text-primary" />
-              <span>Trusted by Sakra</span>
+              <span>Trusted by SAKRA IKOC</span>
             </div>
           </div>
         </div>
@@ -227,7 +234,7 @@ export default function LandingPage() {
           </p>
           <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-5">
             {[
-              { icon: Stethoscope, label: "Unlimited GP", desc: "Consult anytime" },
+              { icon: Stethoscope, label: "Unlimited General Physician", desc: "Consult anytime" },
               { icon: Activity, label: "Specialist Consults", desc: "Expert doctors" },
               { icon: Microscope, label: "Diagnostics Discount", desc: "Up to 40% off" },
               { icon: Ambulance, label: "Ambulance Pickup", desc: "Emergency ready" },
@@ -251,11 +258,12 @@ export default function LandingPage() {
           <h2 className="text-2xl font-bold tracking-tight sm:text-3xl mb-12">
             How It Works
           </h2>
-          <div className="grid grid-cols-1 gap-8 sm:grid-cols-3 max-w-3xl mx-auto">
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4 max-w-4xl mx-auto">
             {[
               { step: "1", icon: ClipboardList, title: "Choose Plan", desc: "Pick the plan that fits your family's needs" },
               { step: "2", icon: UserPlus, title: "Register Online", desc: "Quick registration with mobile number" },
-              { step: "3", icon: ShieldCheck, title: "Access Healthcare", desc: "Start using services at Sakra Hospital" },
+              { step: "3", icon: Users, title: "Add Family Members", desc: "Include your loved ones in the plan" },
+              { step: "4", icon: ShieldCheck, title: "Access Health Care", desc: "Start using services at Sakra IKOC Hospital" },
             ].map((item) => (
               <div key={item.step} className="flex flex-col items-center gap-4 p-6" data-testid={`step-${item.step}`}>
                 <div className="relative">
@@ -406,36 +414,39 @@ export default function LandingPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-primary/20" data-testid="card-careplus-cost">
+            <Card className="border-emerald-500/30" data-testid="card-careplus-cost">
               <CardHeader>
                 <CardTitle className="text-lg text-primary">CarePlus Membership Cost</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex justify-between text-sm">
                   <span>Unlimited GP Consultations</span>
-                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Specialist Access</span>
-                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Diagnostics Discounts</span>
-                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Emergency Ambulance</span>
-                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                 </div>
                 <div className="border-t pt-3 mt-3">
                   <div className="flex justify-between font-bold text-lg">
                     <span>One Year Protection</span>
-                    <span className="text-primary">{formatPrice(500)}</span>
+                    <span className="text-emerald-500 font-extrabold">{formatPrice(500)}</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
+          <p className="text-center text-sm text-muted-foreground mt-6 max-w-2xl mx-auto italic">
+            The above values represent the approximate market value for one patient.
+          </p>
           <div className="text-center mt-10">
             <Button
               size="lg"
@@ -449,15 +460,17 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* SECTION 7 - TRUST BUILDING */}
-      <section className="py-16 sm:py-20 bg-muted/20" data-testid="section-trust">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl mb-4">
-            Trusted by Thousands
-          </h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto mb-12">
-            Sakra World Hospital is a multi-specialty hospital in Bangalore, offering world-class healthcare powered by global expertise.
-          </p>
+      {/* SECTION 7 - ABOUT SAKRA IKOC */}
+      <section className="py-16 sm:py-20 bg-muted/20" data-testid="section-about">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-2xl font-bold tracking-tight sm:text-3xl mb-4">
+              About Sakra IKOC
+            </h2>
+            <p className="text-muted-foreground max-w-3xl mx-auto text-lg leading-relaxed">
+              Sakra World Hospital (Institute of Knowledge, Orthopaedics &amp; Consultancy) is a premier multi-specialty hospital in Bangalore, India. Backed by Japanese precision and global healthcare expertise, Sakra IKOC delivers world-class medical care across 25+ specialties with a patient-first approach.
+            </p>
+          </div>
           <div className="grid grid-cols-2 gap-6 sm:grid-cols-4 max-w-3xl mx-auto">
             {[
               { icon: Building2, label: "Multi-specialty Hospital", value: "300+ Beds" },
@@ -465,7 +478,7 @@ export default function LandingPage() {
               { icon: Stethoscope, label: "Expert Doctors", value: "150+ Specialists" },
               { icon: ShieldCheck, label: "Years of Trust", value: "10+ Years" },
             ].map((item) => (
-              <div key={item.label} className="flex flex-col items-center gap-2 p-4" data-testid={`trust-stat-${item.label.toLowerCase().replace(/\s/g, "-")}`}>
+              <div key={item.label} className="flex flex-col items-center gap-2 p-4" data-testid={`about-stat-${item.label.toLowerCase().replace(/\s/g, "-")}`}>
                 <item.icon className="h-8 w-8 text-primary mb-2" />
                 <p className="text-xl font-bold">{item.value}</p>
                 <p className="text-xs text-muted-foreground">{item.label}</p>
@@ -511,7 +524,7 @@ export default function LandingPage() {
                       {testimonial.name.charAt(0)}
                     </div>
                     <div>
-                      <p className="font-semibold text-sm">{testimonial.name}</p>
+                      <p className="text-sm font-medium">{testimonial.name}</p>
                       <p className="text-xs text-muted-foreground">{testimonial.role}</p>
                     </div>
                   </div>
@@ -544,7 +557,7 @@ export default function LandingPage() {
             <AccordionItem value="booking" data-testid="faq-booking">
               <AccordionTrigger>How to book an appointment?</AccordionTrigger>
               <AccordionContent>
-                Once enrolled, you can book appointments directly at Sakra World Hospital. Simply show your CarePlus card at the reception, and your services will be applied automatically.
+                Once enrolled in the CarePlus Program, you can book your appointment directly at Sakra IKOC Hospital. Simply provide your registered mobile number at the reception, and our team will verify your membership digitally. Your CarePlus benefits will be applied automatically.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="ambulance" data-testid="faq-ambulance">
