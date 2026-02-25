@@ -139,9 +139,6 @@ export function HospitalCarousel() {
                       className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                       loading="lazy"
                     />
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
-                      <p className="text-white text-sm font-medium">{image.label}</p>
-                    </div>
                   </div>
                 </div>
               ))}
@@ -194,14 +191,9 @@ export function HospitalCarousel() {
                 className="w-full h-auto max-h-[80vh] object-contain rounded-lg"
                 data-testid="lightbox-image"
               />
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4 rounded-b-lg">
-                <p className="text-white text-lg font-medium text-center">
-                  {images[lightboxIndex].label}
-                </p>
-                <p className="text-white/60 text-sm text-center mt-1">
-                  {lightboxIndex + 1} / {totalImages}
-                </p>
-              </div>
+              <p className="text-white/60 text-sm text-center mt-3">
+                {lightboxIndex + 1} / {totalImages}
+              </p>
             </div>
             <div className="flex items-center justify-center gap-8 mt-6">
               <Button
