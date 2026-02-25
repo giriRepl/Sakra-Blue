@@ -144,24 +144,6 @@ export function HospitalCarousel() {
               ))}
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="icon"
-            className="absolute left-2 top-1/2 -translate-y-1/2 bg-background/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity z-10 rounded-full shadow-md"
-            onClick={() => goToSlide("prev")}
-            data-testid="carousel-prev"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="absolute right-2 top-1/2 -translate-y-1/2 bg-background/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity z-10 rounded-full shadow-md"
-            onClick={() => goToSlide("next")}
-            data-testid="carousel-next"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </Button>
         </div>
       </div>
 
