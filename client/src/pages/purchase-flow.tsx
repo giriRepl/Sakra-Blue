@@ -840,7 +840,7 @@ export default function PurchaseFlowPage() {
                   Other Members
                 </CardTitle>
                 <CardDescription>
-                  Enter details for the other members covered in this package
+                  Enter details for the other members covered in this package. Only the enrolled members can avail the benefits of the package
                 </CardDescription>
               </CardHeader>
               <CardContent>
