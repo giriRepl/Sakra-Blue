@@ -37,6 +37,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useCustomerAuth } from "@/lib/auth";
 import { getLowestPrice, type Package } from "@shared/schema";
 import sakraIkocLogo from "@assets/Sakra_IKOC_Logo_(3)_1772012091670.png";
+import { HospitalCarousel } from "@/components/hospital-carousel";
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -595,6 +596,9 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* HOSPITAL AT A GLANCE - CAROUSEL */}
+      <HospitalCarousel />
 
       {/* FOOTER */}
       <footer className="border-t py-8 bg-muted/30">
