@@ -203,24 +203,26 @@ export function HospitalCarousel() {
                 </p>
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="icon"
-              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/10 border-white/30 text-white hover:bg-white/20 rounded-full"
-              onClick={lightboxPrev}
-              data-testid="lightbox-prev"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/10 border-white/30 text-white hover:bg-white/20 rounded-full"
-              onClick={lightboxNext}
-              data-testid="lightbox-next"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </Button>
+            <div className="flex items-center justify-center gap-8 mt-6">
+              <Button
+                variant="outline"
+                size="icon"
+                className="bg-white/10 border-white/30 text-white hover:bg-white/20 rounded-full h-12 w-12"
+                onClick={lightboxPrev}
+                data-testid="lightbox-prev"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="bg-white/10 border-white/30 text-white hover:bg-white/20 rounded-full h-12 w-12"
+                onClick={lightboxNext}
+                data-testid="lightbox-next"
+              >
+                <ChevronRight className="h-6 w-6" />
+              </Button>
+            </div>
           </div>
         </div>
       )}
