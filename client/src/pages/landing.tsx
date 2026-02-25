@@ -66,12 +66,6 @@ export default function LandingPage() {
           <div className="flex h-16 items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <ThemeToggle />
-              <a href="tel:+918049694969" className="hidden sm:flex" data-testid="link-call-header">
-                <Button variant="outline" size="sm" data-testid="button-call-header">
-                  <Phone className="mr-2 h-4 w-4" />
-                  Call Us
-                </Button>
-              </a>
             </div>
             <div className="absolute left-1/2 -translate-x-1/2">
               <img src={sakraIkocLogo} alt="Sakra World Hospital in association with IKOC" className="h-12 object-contain" />
