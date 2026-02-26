@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Badge } from "@/components/ui/badge";
-import { ThemeToggle } from "@/components/theme-toggle";
+
 import { useToast } from "@/hooks/use-toast";
 import { useCustomerAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
@@ -118,7 +118,7 @@ export default function CustomerLoginPage() {
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <span className="font-semibold">Login</span>
-            <ThemeToggle />
+            <div />
           </div>
         </div>
       </header>

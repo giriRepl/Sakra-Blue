@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { ThemeToggle } from "@/components/theme-toggle";
+
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -102,7 +102,6 @@ function SuperAdminLogin({ onLogin }: { onLogin: () => void }) {
               </Button>
             </Link>
             <span className="font-semibold">Super Admin</span>
-            <ThemeToggle />
           </div>
         </div>
       </header>
@@ -1185,7 +1184,6 @@ function SuperAdminPanel({ onLogout }: { onLogout: () => void }) {
               <SidebarTrigger data-testid="button-sidebar-toggle" />
               <h1 className="text-xl font-semibold">{pageTitle}</h1>
             </div>
-            <ThemeToggle />
           </header>
           <main className="flex-1 overflow-auto p-4 lg:p-6">
             <div className="mx-auto max-w-7xl">

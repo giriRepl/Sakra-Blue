@@ -33,7 +33,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { LoadingSpinner } from "@/components/loading-spinner";
-import { ThemeToggle } from "@/components/theme-toggle";
+
 import { useCustomerAuth } from "@/lib/auth";
 import { getLowestPrice, type Package } from "@shared/schema";
 import sakraIkocLogo from "@assets/Sakra_IKOC_Logo_(3)_1772012091670.png";
@@ -66,7 +66,6 @@ export default function LandingPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <ThemeToggle />
             </div>
             <div className="absolute left-1/2 -translate-x-1/2">
               <img src={sakraIkocLogo} alt="Sakra World Hospital in association with IKOC" className="h-12 object-contain" />

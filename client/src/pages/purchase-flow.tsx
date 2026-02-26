@@ -21,7 +21,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { LoadingPage } from "@/components/loading-spinner";
-import { ThemeToggle } from "@/components/theme-toggle";
+
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getPackagePricingTiers, getLowestPrice, type Package } from "@shared/schema";
@@ -461,7 +461,7 @@ export default function PurchaseFlowPage() {
             <span className="font-semibold">
               {step === "success" ? "Purchase Complete" : "Complete Purchase"}
             </span>
-            <ThemeToggle />
+            <div />
           </div>
         </div>
       </header>

@@ -12,7 +12,7 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/theme-toggle";
+
 import { useAdminAuth } from "@/lib/auth";
 
 interface AdminLayoutProps {
@@ -106,7 +106,6 @@ export function AdminLayout({ children, title }: AdminLayoutProps) {
               <SidebarTrigger data-testid="button-sidebar-toggle" />
               <h1 className="text-xl font-semibold">{title}</h1>
             </div>
-            <ThemeToggle />
           </header>
           <main className="flex-1 overflow-auto p-4 lg:p-6">
             <div className="mx-auto max-w-7xl">

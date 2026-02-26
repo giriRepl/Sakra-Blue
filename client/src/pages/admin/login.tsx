@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
-import { ThemeToggle } from "@/components/theme-toggle";
+
 import { useToast } from "@/hooks/use-toast";
 import { useAdminAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
@@ -78,7 +78,7 @@ export default function AdminLoginPage() {
               </Button>
             </Link>
             <span className="font-semibold">Admin Login</span>
-            <ThemeToggle />
+            <div />
           </div>
         </div>
       </header>

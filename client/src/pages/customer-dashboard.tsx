@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { LoadingPage } from "@/components/loading-spinner";
 import { EmptyState } from "@/components/empty-state";
-import { ThemeToggle } from "@/components/theme-toggle";
+
 import { useCustomerAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -295,7 +295,6 @@ export default function CustomerDashboardPage() {
               <span className="font-semibold">My Cards</span>
             </div>
             <div className="flex items-center gap-2">
-              <ThemeToggle />
               <Button
                 variant="ghost"
                 size="icon"

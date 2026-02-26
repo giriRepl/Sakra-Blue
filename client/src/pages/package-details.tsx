@@ -6,7 +6,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { LoadingPage } from "@/components/loading-spinner";
-import { ThemeToggle } from "@/components/theme-toggle";
+
 import { getPackagePricingTiers, getLowestPrice, type Package } from "@shared/schema";
 
 function formatPrice(price: number) {
@@ -68,7 +68,7 @@ export default function PackageDetailsPage() {
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <span className="font-semibold">Package Details</span>
-            <ThemeToggle />
+            <div />
           </div>
         </div>
       </header>
