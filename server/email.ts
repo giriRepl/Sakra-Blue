@@ -1,4 +1,12 @@
-import nodemailer from "nodemailer";
+import {
+  ExchangeService,
+  EmailMessage,
+  MessageBody,
+  Uri,
+  ExchangeCredentials,
+  ExchangeVersion,
+  BodyType,
+} from "ews-javascript-api";
 
 interface SendEmailResult {
   success: boolean;
@@ -6,9 +14,8 @@ interface SendEmailResult {
   messageId?: string;
 }
 
-function createTransporter() {
+function createExchangeService(): ExchangeService | null {
   const host = (process.env.SMTP_HOST || "").replace(/^https?:\/\//, "").trim();
-  const portStr = (process.env.SMTP_PORT || "").trim();
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
 
@@ -16,23 +23,11 @@ function createTransporter() {
     return null;
   }
 
-  const config: any = {
-    host,
-    auth: { user, pass },
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 15000,
-    tls: {
-      rejectUnauthorized: false,
-      ciphers: "SSLv3",
-    },
-  };
+  const service = new ExchangeService(ExchangeVersion.Exchange2013);
+  service.Credentials = new ExchangeCredentials(user, pass);
+  service.Url = new Uri(`https://${host}/EWS/Exchange.asmx`);
 
-  const port = portStr && !isNaN(parseInt(portStr)) ? parseInt(portStr) : 587;
-  config.port = port;
-  config.secure = port === 465;
-
-  return nodemailer.createTransport(config);
+  return service;
 }
 
 export async function sendEmail(
@@ -40,34 +35,26 @@ export async function sendEmail(
   subject: string,
   body: string
 ): Promise<SendEmailResult> {
-  const transporter = createTransporter();
-  if (!transporter) {
-    return { success: false, error: "SMTP not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASS." };
+  const service = createExchangeService();
+  if (!service) {
+    return { success: false, error: "Email not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASS." };
   }
 
-  const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
   const host = (process.env.SMTP_HOST || "").replace(/^https?:\/\//, "").trim();
-  const portStr = (process.env.SMTP_PORT || "").trim();
 
   try {
-    await transporter.verify();
+    const message = new EmailMessage(service);
+    message.Subject = subject;
+    message.Body = new MessageBody(BodyType.HTML, body);
+    message.ToRecipients.Add(to);
+
+    await message.Send();
+
+    return { success: true, messageId: `ews-${Date.now()}` };
   } catch (error: any) {
     return {
       success: false,
-      error: `Cannot connect to SMTP server ${host}${portStr ? ":" + portStr : ""} — ${error.message}`,
+      error: `EWS error (${host}) — ${error.message || "Failed to send email"}`,
     };
-  }
-
-  try {
-    const info = await transporter.sendMail({
-      from: fromAddress,
-      to,
-      subject,
-      html: body,
-    });
-
-    return { success: true, messageId: info.messageId };
-  } catch (error: any) {
-    return { success: false, error: error.message || "Failed to send email" };
   }
 }
