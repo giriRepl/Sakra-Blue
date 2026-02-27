@@ -121,6 +121,17 @@ Preferred communication style: Simple, everyday language.
   - Failure logging: All SMS failures logged to `sms_failure_logs` table
   - Super Admin SMS page at `/superadmin` (passcode: 7999)
 
+### Email System
+- **Dual-route architecture**: SMTP primary with EWS (Exchange Web Services) fallback
+  - Utility: `server/email.ts` — `sendEmail()`, `sendEmailSmtp()`, `sendEmailEws()`, `checkEmailHealth()`
+  - `sendEmail()` tries SMTP first, falls back to EWS on failure; if SMTP not configured, goes straight to EWS
+  - SMTP config: `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, `SMTP_PORT` (default 587), `SMTP_FROM`, `SMTP_SECURE`, `SMTP_REJECT_UNAUTHORIZED`
+  - EWS config: `EWS_URL`, `EWS_USERNAME`, `EWS_PASSWORD`, `EWS_DOMAIN`, `EWS_AUTH_TYPE` (auto/ntlm/basic/cookie), `EWS_REJECT_UNAUTHORIZED`, `EWS_EXCHANGE_VERSION`
+  - EWS auto-retry: On 401, cycles through auth modes (ntlm → basic → cookie) and username variants (plain, domain\\user, email format)
+  - Packages: `nodemailer`, `ews-javascript-api`, `httpntlm`, `xhr2`
+  - Super Admin email test page: method selector (Auto/SMTP/EWS), health status panel
+  - API: `POST /api/superadmin/send-test-email` (with optional `method` field), `GET /api/superadmin/email-health`
+
 ### Build & Development
 - **Vite**: Frontend build tool with HMR
 - **esbuild**: Server bundling for production

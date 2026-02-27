@@ -1,0 +1,115 @@
+
+Goal
+Implement programmatic email sending with two routes:
+1. Primary: SMTP via Nodemailer (fastest, simplest, least fragile)
+2. Fallback: EWS via ews-javascript-api over HTTPS 443 with auth auto-detection and username format retries (handles most 401 cases)
+
+1) Add/keep these environment variables
+SMTP (primary)
+* SMTP_HOST
+* SMTP_PORT (default 587)
+* SMTP_USER
+* SMTP_PASS
+* FROM_EMAIL (sender email address)
+* SMTP_SECURE (true for 465, otherwise false)
+* SMTP_REJECT_UNAUTHORIZED (true in production; false only for testing/self-signed certs)
+EWS (fallback)
+* EWS_URL (e.g. https://mail.sakraworldhospital.com/EWS/Exchange.asmx)
+* EWS_USERNAME (can be email or user; we will derive variants)
+* EWS_PASSWORD
+* EWS_DOMAIN (e.g. SAKRAWORLDHOSPITAL)
+* EWS_AUTH_TYPE (auto recommended; supports basic|ntlm|cookie|auto)
+* EWS_REJECT_UNAUTHORIZED (true in production; false only for testing/self-signed)
+* EWS_EXCHANGE_VERSION (use Exchange2016 by default)
+Important: EWS_USERNAME should ideally be the AD user (example Welfare.IKOC) but the code must support email too.
+
+2) API behavior to implement (exactly like your friend)
+Endpoint A — /send-email (SMTP)
+* Validate input: to, subject, body (+ optional cc, bcc, isHtml)
+* Use Nodemailer:
+    * Build transporter with host/port/secure/auth/tls.rejectUnauthorized
+    * Call await transporter.verify() before sending
+    * Send mail with:
+        * from: FROM_EMAIL
+        * to/cc/bcc
+        * subject
+        * text or html
+Why: This route avoids EWS/NTLM complexity. Use it whenever SMTP is allowed.
+
+Endpoint B — /send-email-ews (EWS)
+Implement sendEmailViaEws(dto) with these rules:
+A) Derive a list of username variants and try each
+Given:
+* EWS_DOMAIN (e.g., SAKRAWORLDHOSPITAL)
+* EWS_USERNAME (may be Welfare.IKOC or Welfare.IKOC@sakraworldhospital.com)
+* FROM_EMAIL (for email domain if needed)
+Generate variants in this order:
+1. EWS_USERNAME as provided
+2. If it contains @, also try local part: Welfare.IKOC
+3. DOMAIN\localPart (e.g. SAKRAWORLDHOSPITAL\Welfare.IKOC)
+4. localPart@<fromEmailDomain> (e.g. Welfare.IKOC@sakraworldhospital.com)
+This is critical: many NTLM EWS deployments only accept DOMAIN\username.
+B) Try auth modes (if EWS_AUTH_TYPE=auto)
+Attempt auth in this order:
+1. basic
+2. ntlm
+3. cookie
+If EWS_AUTH_TYPE is set explicitly (ntlm only etc.), try only that.
+C) For each (authMode × usernameVariant), attempt to send
+For each attempt:
+1. Create ExchangeService(Exchange2016) (or from env)
+2. Set service.Url = new Uri(EWS_URL)
+3. Configure HTTP/XHR layer with TLS setting:
+    * rejectUnauthorized = EWS_REJECT_UNAUTHORIZED !== 'false'
+4. Apply auth:
+    * basic: service.Credentials = new WebCredentials(usernameVariant, password)
+    * ntlm: configure XHR to use NTLM (Node needs handshake support)
+        * xhrApi.useNtlmAuthentication(usernameVariant, password)
+        * ConfigureXHR(xhrApi)
+    * cookie: service.Credentials = new WebCredentials(usernameVariant, password) (or cookie jar if used in your friend’s code)
+5. Create EmailMessage(service)
+6. Set:
+    * Subject = dto.subject
+    * Body = new MessageBody(isHtml ? BodyType.HTML : BodyType.Text, dto.body)
+    * ToRecipients.Add(dto.to) (and CC/BCC as needed)
+7. Send:
+    * SendAndSaveCopy() (so it appears in Sent Items)
+D) Error handling rules
+* If you get a 401, keep trying next combo.
+* If you get any other error (DNS, TLS, invalid SOAP, etc.), stop and throw immediately.
+* Log each attempt in a safe way:
+    * log authMode + username variant used
+    * never log password
+E) Output
+Return:
+* Which mode/username variant succeeded
+* Or a clear final failure:
+    * “All EWS auth attempts failed with 401”
+    * include list of attempted variants/modes (no secrets)
+
+3) Required packages / notes for Node
+* ews-javascript-api
+* Ensure the XHR implementation supports NTLM in Node (your friend uses XhrApi and calls useNtlmAuthentication—copy that pattern exactly).
+Important: Don’t use plain axios/fetch for NTLM unless you add an NTLM agent; Node does not “just do NTLM” by default.
+
+4) Operational guidance (what to run in staging/production)
+Recommended defaults
+* Use SMTP route in production unless your infra blocks ports.
+* Use EWS route as fallback when SMTP is blocked but HTTPS 443 is open.
+TLS
+* Production: *_REJECT_UNAUTHORIZED=true
+* Only set to false temporarily if Exchange uses self-signed/internal cert and you’re testing. (Long-term fix is to install a valid cert chain.)
+
+5) Quick validation steps your developer should add
+* Add a /health/email check that:
+    * SMTP: runs transporter.verify()
+    * EWS: runs a lightweight EWS call (or a send to a test mailbox) behind a feature flag
+
+6) What you should tell IT (if EWS still 401s)
+If all EWS attempts 401:
+* Confirm EWS is enabled for that mailbox/user
+* Confirm allowed auth mode on /EWS virtual directory (NTLM vs Basic vs modern auth)
+* Confirm account is not blocked by conditional access / MFA requirements
+* Confirm load balancer is “sticky” if multiple CAS servers (NTLM needs connection consistency)
+
+If you want, paste your .env values (mask passwords) and tell me whether you are calling /send-email or /send-email-ews. I can tell you which specific variable combo to use first (most likely EWS_DOMAIN\usernameLocalPart + EWS_AUTH_TYPE=ntlm).

@@ -7,7 +7,7 @@ import { addMonths } from "date-fns";
 import crypto from "crypto";
 import Razorpay from "razorpay";
 import { sendSms, sendTemplatedSms, generateNumericOtp } from "./sms";
-import { sendEmail } from "./email";
+import { sendEmail, sendEmailSmtp, sendEmailEws, checkEmailHealth } from "./email";
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID || "",
@@ -1080,20 +1080,37 @@ export async function registerRoutes(
 
   app.post("/api/superadmin/send-test-email", requireSuperAdminAuth, async (req: Request, res: Response) => {
     try {
-      const { to, subject, body } = req.body;
+      const { to, subject, body, method } = req.body;
       if (!to || !subject || !body) {
         return res.status(400).json({ error: "Email address, subject, and body are required" });
       }
 
-      const result = await sendEmail(to, subject, body);
-      if (result.success) {
-        res.json({ success: true, messageId: result.messageId });
+      let result;
+      if (method === "smtp") {
+        result = await sendEmailSmtp(to, subject, body);
+      } else if (method === "ews") {
+        result = await sendEmailEws(to, subject, body);
       } else {
-        res.status(500).json({ error: result.error });
+        result = await sendEmail(to, subject, body);
+      }
+
+      if (result.success) {
+        res.json({ success: true, messageId: result.messageId, method: result.method, details: result.details });
+      } else {
+        res.status(500).json({ error: result.error, method: result.method, details: result.details });
       }
     } catch (error: any) {
       console.error("[Email Route] Unhandled error:", error?.message || error, error?.stack);
       res.status(500).json({ error: error?.message || "Failed to send email" });
+    }
+  });
+
+  app.get("/api/superadmin/email-health", requireSuperAdminAuth, async (_req: Request, res: Response) => {
+    try {
+      const health = await checkEmailHealth();
+      res.json(health);
+    } catch (error: any) {
+      res.status(500).json({ error: error?.message || "Health check failed" });
     }
   });
 

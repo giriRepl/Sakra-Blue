@@ -933,21 +933,33 @@ function EmailTestPage() {
   const [emailTo, setEmailTo] = useState("");
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
+  const [emailMethod, setEmailMethod] = useState<"auto" | "smtp" | "ews">("auto");
   const [result, setResult] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  const healthQuery = useQuery<{ smtp: { configured: boolean; connected?: boolean; error?: string }; ews: { configured: boolean } }>({
+    queryKey: ["/api/superadmin/email-health"],
+    queryFn: async () => {
+      const res = await superAdminFetch("/api/superadmin/email-health");
+      return res.json();
+    },
+  });
 
   const sendMutation = useMutation({
     mutationFn: async () => {
+      const payload: any = { to: emailTo, subject: emailSubject, body: emailBody };
+      if (emailMethod !== "auto") payload.method = emailMethod;
       const res = await superAdminFetch("/api/superadmin/send-test-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: emailTo, subject: emailSubject, body: emailBody }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to send email");
       return data;
     },
     onSuccess: (data) => {
-      setResult({ type: "success", message: `Email sent successfully! Message ID: ${data.messageId || "N/A"}` });
+      const method = data.method ? ` via ${data.method.toUpperCase()}` : "";
+      setResult({ type: "success", message: `Email sent successfully${method}! ${data.details || ""}` });
     },
     onError: (err: any) => {
       setResult({ type: "error", message: err.message || "Failed to send email" });
@@ -955,16 +967,68 @@ function EmailTestPage() {
   });
 
   return (
-    <div className="max-w-2xl" data-testid="page-email-test">
+    <div className="max-w-2xl space-y-6" data-testid="page-email-test">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5" />
-            Test Email
+            Email Health
           </CardTitle>
-          <CardDescription>Send a test email via SMTP to verify the mailer configuration.</CardDescription>
+          <CardDescription>Status of configured email routes.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {healthQuery.isLoading ? (
+            <p className="text-sm text-muted-foreground">Checking...</p>
+          ) : healthQuery.data ? (
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center gap-2">
+                <div className={`h-2.5 w-2.5 rounded-full ${healthQuery.data.smtp.configured ? (healthQuery.data.smtp.connected ? "bg-green-500" : "bg-yellow-500") : "bg-gray-300"}`} />
+                <span className="font-medium">SMTP:</span>
+                <span className="text-muted-foreground">
+                  {!healthQuery.data.smtp.configured
+                    ? "Not configured"
+                    : healthQuery.data.smtp.connected
+                      ? "Connected"
+                      : `Configured but connection failed${healthQuery.data.smtp.error ? ` (${healthQuery.data.smtp.error})` : ""}`}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className={`h-2.5 w-2.5 rounded-full ${healthQuery.data.ews.configured ? "bg-green-500" : "bg-gray-300"}`} />
+                <span className="font-medium">EWS:</span>
+                <span className="text-muted-foreground">
+                  {healthQuery.data.ews.configured ? "Configured" : "Not configured"}
+                </span>
+              </div>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Send className="h-5 w-5" />
+            Send Test Email
+          </CardTitle>
+          <CardDescription>Send a test email using SMTP (primary) or EWS (fallback). Auto mode tries SMTP first, then falls back to EWS.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Send Method</label>
+            <div className="flex gap-2">
+              {(["auto", "smtp", "ews"] as const).map((m) => (
+                <Button
+                  key={m}
+                  variant={emailMethod === m ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setEmailMethod(m)}
+                  data-testid={`button-method-${m}`}
+                >
+                  {m === "auto" ? "Auto (SMTP → EWS)" : m.toUpperCase()}
+                </Button>
+              ))}
+            </div>
+          </div>
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor="email-to">To (Email Address)</label>
             <Input
@@ -1011,7 +1075,7 @@ function EmailTestPage() {
           </Button>
           {result && (
             <div
-              className={`p-3 rounded-md text-sm ${result.type === "success" ? "bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200" : "bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200"}`}
+              className={`p-3 rounded-md text-sm ${result.type === "success" ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"}`}
               data-testid="email-result"
             >
               {result.message}
