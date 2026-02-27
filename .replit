@@ -40,3 +40,10 @@ waitForPort = 5000
 
 [agent]
 integrations = ["javascript_database:1.0.0"]
+
+[userenv]
+
+[userenv.shared]
+EWS_AUTH_TYPE = "ntlm"
+EWS_DOMAIN = "SAKRAWORLDHOSPITAL"
+EWS_REJECT_UNAUTHORIZED = "false"
