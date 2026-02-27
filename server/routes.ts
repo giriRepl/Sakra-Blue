@@ -8,6 +8,7 @@ import crypto from "crypto";
 import Razorpay from "razorpay";
 import { sendSms, sendTemplatedSms, generateNumericOtp } from "./sms";
 import { sendEmail, sendEmailSmtp, sendEmailEws, checkEmailHealth } from "./email";
+import { generateInvoiceNumber, buildInvoiceEmailHtml, buildInvoiceEmailSubject } from "./invoice-email";
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID || "",
@@ -276,6 +277,31 @@ export async function registerRoutes(
           "{#F_Name#}": customer.name || "",
           "{#L_Name#}": "",
         }).catch(err => console.error("Purchase SMS error:", err));
+
+        const invoiceNum = generateInvoiceNumber(updatedPurchase?.purchaseDate || new Date());
+        if (updatedPurchase) {
+          await storage.updatePurchaseInvoice(updatedPurchase.id, { invoiceNumber: invoiceNum, invoiceEmailSent: false });
+        }
+
+        if (customer.email) {
+          const html = buildInvoiceEmailHtml({
+            invoiceNumber: invoiceNum,
+            customerName: customer.name || "Customer",
+            packageName: pkg.title,
+            totalAmount: pendingPurchase.amountPaid,
+            purchaseDate: updatedPurchase?.purchaseDate || new Date(),
+          });
+          sendEmail(customer.email, buildInvoiceEmailSubject(invoiceNum), html)
+            .then(async (result) => {
+              if (result.success && updatedPurchase) {
+                await storage.updatePurchaseInvoice(updatedPurchase.id, { invoiceNumber: invoiceNum, invoiceEmailSent: true });
+                console.log("[Invoice] Email sent to", customer.email);
+              } else {
+                console.error("[Invoice] Email failed:", result.error);
+              }
+            })
+            .catch(err => console.error("[Invoice] Email error:", err));
+        }
       }
 
       res.json({ ...updatedPurchase, selectedTier });
@@ -349,6 +375,31 @@ export async function registerRoutes(
       const updated = await storage.updateCustomerProfile(customer.id, { name, email, age, location, gender });
       if (!updated) {
         return res.status(404).json({ error: "Customer not found" });
+      }
+
+      if (email) {
+        const customerPurchases = await storage.getPurchasesByCustomer(customer.id);
+        for (const p of customerPurchases) {
+          if (p.paymentStatus === "paid" && p.invoiceNumber && !p.invoiceEmailSent) {
+            const html = buildInvoiceEmailHtml({
+              invoiceNumber: p.invoiceNumber,
+              customerName: name || customer.name || "Customer",
+              packageName: p.packageSnapshot?.title || "Healthcare Package",
+              totalAmount: p.amountPaid,
+              purchaseDate: p.purchaseDate,
+            });
+            sendEmail(email, buildInvoiceEmailSubject(p.invoiceNumber), html)
+              .then(async (result) => {
+                if (result.success) {
+                  await storage.updatePurchaseInvoice(p.id, { invoiceNumber: p.invoiceNumber!, invoiceEmailSent: true });
+                  console.log("[Invoice] Deferred email sent to", email, "for purchase", p.id);
+                } else {
+                  console.error("[Invoice] Deferred email failed:", result.error);
+                }
+              })
+              .catch(err => console.error("[Invoice] Deferred email error:", err));
+          }
+        }
       }
 
       res.json(updated);

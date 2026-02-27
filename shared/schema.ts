@@ -111,6 +111,8 @@ export const purchases = pgTable("purchases", {
   razorpayOrderId: text("razorpay_order_id"),
   razorpayPaymentId: text("razorpay_payment_id"),
   paymentStatus: text("payment_status").notNull().default("pending"),
+  invoiceNumber: text("invoice_number"),
+  invoiceEmailSent: boolean("invoice_email_sent").default(false),
 });
 
 export const purchasesRelations = relations(purchases, ({ one }) => ({
