@@ -188,6 +188,8 @@ async function attemptEwsSend(
     const service = new ExchangeService(version);
     service.Url = new Uri(ewsUrl);
 
+    service.Credentials = new WebCredentials(username, password);
+
     if (authMode === "ntlm") {
       const xhrApi = new XhrApi();
       if (!rejectUnauthorized) {
@@ -199,7 +201,6 @@ async function attemptEwsSend(
       if (!rejectUnauthorized) {
         process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
       }
-      service.Credentials = new WebCredentials(username, password);
       ConfigurationApi.ConfigureXHR(new xhr2());
     }
 
