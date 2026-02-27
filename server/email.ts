@@ -6,6 +6,7 @@ import {
   ExchangeCredentials,
   ExchangeVersion,
   BodyType,
+  ConfigurationApi,
 } from "ews-javascript-api";
 
 interface SendEmailResult {
@@ -15,17 +16,22 @@ interface SendEmailResult {
 }
 
 function createExchangeService(): ExchangeService | null {
-  const host = (process.env.SMTP_HOST || "").replace(/^https?:\/\//, "").trim();
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
+  const ewsUrl = process.env.EWS_URL;
+  const ewsUser = process.env.EWS_USERNAME;
+  const ewsPass = process.env.EWS_PASSWORD;
+  const ewsDomain = process.env.EWS_DOMAIN || "";
 
-  if (!host || !user || !pass) {
+  if (!ewsUrl || !ewsUser || !ewsPass) {
     return null;
   }
 
+  ConfigurationApi.ConfigureXHR(new (require("xhr2"))());
+
   const service = new ExchangeService(ExchangeVersion.Exchange2013);
-  service.Credentials = new ExchangeCredentials(user, pass);
-  service.Url = new Uri(`https://${host}/EWS/Exchange.asmx`);
+
+  const username = ewsDomain ? `${ewsDomain}\\${ewsUser}` : ewsUser;
+  service.Credentials = new ExchangeCredentials(username, ewsPass);
+  service.Url = new Uri(ewsUrl);
 
   return service;
 }
@@ -37,10 +43,8 @@ export async function sendEmail(
 ): Promise<SendEmailResult> {
   const service = createExchangeService();
   if (!service) {
-    return { success: false, error: "Email not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASS." };
+    return { success: false, error: "EWS not configured. Set EWS_URL, EWS_USERNAME, EWS_PASSWORD." };
   }
-
-  const host = (process.env.SMTP_HOST || "").replace(/^https?:\/\//, "").trim();
 
   try {
     const message = new EmailMessage(service);
@@ -52,9 +56,10 @@ export async function sendEmail(
 
     return { success: true, messageId: `ews-${Date.now()}` };
   } catch (error: any) {
+    const ewsUrl = process.env.EWS_URL || "";
     return {
       success: false,
-      error: `EWS error (${host}) — ${error.message || "Failed to send email"}`,
+      error: `EWS error (${ewsUrl}) — ${error.message || "Failed to send email"}`,
     };
   }
 }
