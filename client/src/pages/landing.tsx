@@ -459,27 +459,13 @@ export default function LandingPage() {
       {/* SECTION 7 - ABOUT SAKRA IKOC */}
       <section className="py-16 sm:py-20 bg-muted/20" data-testid="section-about">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-2xl font-bold tracking-tight sm:text-3xl mb-4">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold tracking-tight sm:text-3xl mb-6">
               About Sakra IKOC
             </h2>
-            <p className="text-muted-foreground max-w-3xl mx-auto text-lg leading-relaxed">
-              Sakra World Hospital (Institute of Knowledge, Orthopaedics &amp; Consultancy) is a premier multi-specialty hospital in Bangalore, India. Backed by Japanese precision and global healthcare expertise, Sakra IKOC delivers world-class medical care across 25+ specialties with a patient-first approach.
+            <p className="text-muted-foreground max-w-4xl mx-auto text-base sm:text-lg leading-relaxed">
+              Sakra World Hospital, known for its excellence in healthcare, has joined hands with IKOC – an advanced centre offering comprehensive care across multiple specialties. Our expertise covers a wide range of medical disciplines, allowing us to deliver complete, patient-focused care. From complex surgeries to thorough internal medicine services, we ensure seamless teamwork to support every stage of a patient's health journey. This collaboration brings together Sakra's world-class infrastructure and IKOC's clinical expertise to deliver exceptional outcomes across these specialties. With a strong emphasis on innovation, compassion, and precision, Sakra Hospital offers a complete spectrum of services — from prevention, screening, and education to advanced clinical treatments and rehabilitation. Together, Sakra and IKOC are enhancing the standards of care across all key specialties through cutting-edge technology and a highly experienced team of medical professionals.
             </p>
-          </div>
-          <div className="grid grid-cols-2 gap-6 sm:grid-cols-4 max-w-3xl mx-auto">
-            {[
-              { icon: Building2, label: "Multi-specialty Hospital", value: "300+ Beds" },
-              { icon: Award, label: "Global Expertise", value: "NABH Accredited" },
-              { icon: Stethoscope, label: "Expert Doctors", value: "150+ Specialists" },
-              { icon: ShieldCheck, label: "Years of Trust", value: "10+ Years" },
-            ].map((item) => (
-              <div key={item.label} className="flex flex-col items-center gap-2 p-4" data-testid={`about-stat-${item.label.toLowerCase().replace(/\s/g, "-")}`}>
-                <item.icon className="h-8 w-8 text-primary mb-2" />
-                <p className="text-xl font-bold">{item.value}</p>
-                <p className="text-xs text-muted-foreground">{item.label}</p>
-              </div>
-            ))}
           </div>
         </div>
       </section>
