@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import xhr2 from "xhr2";
 import {
   ExchangeService,
   EmailMessage,
@@ -8,6 +9,7 @@ import {
   ExchangeVersion,
   BodyType,
   ConfigurationApi,
+  XhrApi,
 } from "ews-javascript-api";
 
 interface SendEmailResult {
@@ -187,7 +189,7 @@ async function attemptEwsSend(
     service.Url = new Uri(ewsUrl);
 
     if (authMode === "ntlm") {
-      const xhrApi = new (require("ews-javascript-api").XhrApi)();
+      const xhrApi = new XhrApi();
       if (!rejectUnauthorized) {
         xhrApi.allowUntrustedCertificate = true;
       }
@@ -198,7 +200,6 @@ async function attemptEwsSend(
         process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
       }
       service.Credentials = new WebCredentials(username, password);
-      const xhr2 = require("xhr2");
       ConfigurationApi.ConfigureXHR(new xhr2());
     }
 
