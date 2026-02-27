@@ -1091,8 +1091,9 @@ export async function registerRoutes(
       } else {
         res.status(500).json({ error: result.error });
       }
-    } catch (error) {
-      res.status(500).json({ error: "Failed to send email" });
+    } catch (error: any) {
+      console.error("[Email Route] Unhandled error:", error?.message || error, error?.stack);
+      res.status(500).json({ error: error?.message || "Failed to send email" });
     }
   });
 
