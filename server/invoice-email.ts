@@ -41,6 +41,15 @@ export function buildInvoiceEmailHtml(data: InvoiceData): string {
 
           <tr>
             <td style="padding:28px 32px 0;">
+              <p style="margin:0 0 4px;font-size:14px;color:#374151;">Hi,</p>
+              <p style="margin:0 0 4px;font-size:14px;color:#374151;">Thank you for enrolling into Sakra IKOC's health package. Your invoice is attached here.</p>
+              <p style="margin:0;font-size:14px;color:#374151;">Best Regards,</p>
+              <p style="margin:0;font-size:14px;font-weight:600;color:#374151;">SAKRA IKOC Hospital</p>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:20px 32px 0;">
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td>
