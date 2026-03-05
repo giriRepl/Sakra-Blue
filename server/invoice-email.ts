@@ -24,9 +24,6 @@ export function generateInvoiceNumber(purchaseDate: Date): string {
 }
 
 export function buildInvoiceEmailHtml(data: InvoiceData): string {
-  const gstRate = 18;
-  const netAmount = data.totalAmount / (1 + gstRate / 100);
-  const gstAmount = data.totalAmount - netAmount;
   const formattedDate = format(data.purchaseDate, "dd MMM yyyy");
 
   return `<!DOCTYPE html>
@@ -83,24 +80,8 @@ export function buildInvoiceEmailHtml(data: InvoiceData): string {
                   </td>
                 </tr>
                 <tr>
-                  <td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;">
-                    <p style="margin:0;font-size:13px;color:#6b7280;">Net Amount</p>
-                  </td>
-                  <td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;text-align:right;">
-                    <p style="margin:0;font-size:14px;color:#374151;">${formatCurrency(netAmount)}</p>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;">
-                    <p style="margin:0;font-size:13px;color:#6b7280;">GST (${gstRate}%)</p>
-                  </td>
-                  <td style="padding:10px 16px;border-bottom:1px solid #e5e7eb;text-align:right;">
-                    <p style="margin:0;font-size:14px;color:#374151;">${formatCurrency(gstAmount)}</p>
-                  </td>
-                </tr>
-                <tr>
                   <td style="padding:14px 16px;background-color:#f0fdf4;">
-                    <p style="margin:0;font-size:14px;font-weight:700;color:#111827;">Total Paid</p>
+                    <p style="margin:0;font-size:14px;font-weight:700;color:#111827;">Amount Paid</p>
                   </td>
                   <td style="padding:14px 16px;background-color:#f0fdf4;text-align:right;">
                     <p style="margin:0;font-size:16px;font-weight:700;color:#15803d;">${formatCurrency(data.totalAmount)}</p>

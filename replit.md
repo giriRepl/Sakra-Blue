@@ -134,8 +134,7 @@ Preferred communication style: Simple, everyday language.
   - **Invoice Email**: Sent automatically after successful Razorpay payment
     - Template: `server/invoice-email.ts` — `generateInvoiceNumber()`, `buildInvoiceEmailHtml()`, `buildInvoiceEmailSubject()`
     - Invoice number format: `SIKOC-YYYYMMDD-XXXX` (random 4-digit suffix)
-    - Content: Patient name, package name, net amount, GST (18%), total paid, date, hospital name & address
-    - GST calculation: Total includes 18% GST, so Net = Total / 1.18, GST = Total - Net
+    - Content: Patient name, package name, amount paid, date, hospital name & address
     - Two trigger points: (1) immediately after payment verification if customer has email on file, (2) deferred after profile update for first-time customers
     - Tracking: `invoiceNumber` and `invoiceEmailSent` fields on purchases table
     - Hospital details in footer: Sakra IKOC Limited, L 166, 5th Main, 3rd Floor, Service Road, Sector 6, HSR Layout, Bengaluru, Karnataka 560102
