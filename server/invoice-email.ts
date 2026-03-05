@@ -13,7 +13,7 @@ function formatCurrency(amount: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
-  return `Rs. ${formatted}`;
+  return `INR ${formatted}`;
 }
 
 export function generateInvoiceNumber(purchaseDate: Date): string {
