@@ -139,7 +139,7 @@ Preferred communication style: Simple, everyday language.
     - Two trigger points: (1) immediately after payment verification if customer has email on file, (2) deferred after profile update for first-time customers
     - Tracking: `invoiceNumber` and `invoiceEmailSent` fields on purchases table
     - Hospital details in footer: Takshasila Hospitals Operating Private Limited, Sy No 52/2 and 52/3, Sakra World Hospital, Outer Ring Road, Marathahalli, Devarabeesanahalli, Varthur Hobli, Bengaluru Urban, Karnataka, 560103
-    - **Invoice PDF attachment**: PDF is attached via SMTP (nodemailer attachments); EWS sends email without PDF attachment (library limitation with Exchange server schema validation). `SendEmailResult` includes `attachmentsSkipped` flag when EWS skips attachments.
+    - **Invoice PDF attachment**: PDF is attached via SMTP (nodemailer attachments); EWS uses Save-then-Send pattern (Save draft with attachments, then Send) since SendAndSaveCopy doesn't support unsaved attachments. `SendEmailResult` includes `attachmentsSkipped` flag.
     - **EWS HTML constraint**: Invoice HTML must use XHTML-compatible self-closing tags (e.g., `<br/>` not `<br>`) to avoid EWS XML schema validation errors
     - **Admin invoice actions** (in redeem page when purchase is selected):
       - Download PDF: `GET /api/admin/purchases/:purchaseId/invoice-pdf`

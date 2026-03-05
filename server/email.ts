@@ -234,17 +234,23 @@ async function attemptEwsSend(
       dto.bcc.split(",").map(e => e.trim()).filter(Boolean).forEach(e => message.BccRecipients.Add(e));
     }
 
-    await message.SendAndSaveCopy();
-    const attachmentsSkipped = !!(dto.attachments && dto.attachments.length > 0);
-    if (attachmentsSkipped) {
-      console.log("[EWS] Note: EWS sent email without PDF attachment (not supported via this library)");
+    if (dto.attachments && dto.attachments.length > 0) {
+      for (const att of dto.attachments) {
+        const base64Content = att.content.toString("base64");
+        message.Attachments.AddFileAttachment(att.filename, base64Content);
+      }
+      await message.Save();
+      await message.Send();
+      console.log("[EWS] Sent email with", dto.attachments.length, "attachment(s)");
+    } else {
+      await message.SendAndSaveCopy();
     }
 
     if (!rejectUnauthorized) {
       process.env.NODE_TLS_REJECT_UNAUTHORIZED = "1";
     }
 
-    return { success: true, attachmentsSkipped };
+    return { success: true, attachmentsSkipped: false };
   } catch (error: any) {
     if (!rejectUnauthorized) {
       process.env.NODE_TLS_REJECT_UNAUTHORIZED = "1";
