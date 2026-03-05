@@ -18,6 +18,7 @@ interface SendEmailResult {
   messageId?: string;
   method?: "smtp" | "ews";
   details?: string;
+  attachmentsSkipped?: boolean;
 }
 
 interface EmailAttachment {
@@ -233,25 +234,17 @@ async function attemptEwsSend(
       dto.bcc.split(",").map(e => e.trim()).filter(Boolean).forEach(e => message.BccRecipients.Add(e));
     }
 
-    if (dto.attachments && dto.attachments.length > 0) {
-      for (const att of dto.attachments) {
-        const base64Content = att.content.toString("base64");
-        message.Attachments.AddFileAttachment(att.filename, base64Content);
-      }
-      await message.Save();
-      for (let i = 0; i < message.Attachments.Count; i++) {
-        await message.Attachments._getItem(i).Load();
-      }
-      await message.SendAndSaveCopy();
-    } else {
-      await message.SendAndSaveCopy();
+    await message.SendAndSaveCopy();
+    const attachmentsSkipped = !!(dto.attachments && dto.attachments.length > 0);
+    if (attachmentsSkipped) {
+      console.log("[EWS] Note: EWS sent email without PDF attachment (not supported via this library)");
     }
 
     if (!rejectUnauthorized) {
       process.env.NODE_TLS_REJECT_UNAUTHORIZED = "1";
     }
 
-    return { success: true };
+    return { success: true, attachmentsSkipped };
   } catch (error: any) {
     if (!rejectUnauthorized) {
       process.env.NODE_TLS_REJECT_UNAUTHORIZED = "1";
@@ -309,6 +302,7 @@ async function sendViaEws(dto: EmailDto): Promise<SendEmailResult> {
           messageId: `ews-${Date.now()}`,
           method: "ews",
           details: `Sent via EWS (${authMode}, ${safeUsername})`,
+          attachmentsSkipped: (result as any).attachmentsSkipped,
         };
       }
 

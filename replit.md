@@ -139,7 +139,8 @@ Preferred communication style: Simple, everyday language.
     - Two trigger points: (1) immediately after payment verification if customer has email on file, (2) deferred after profile update for first-time customers
     - Tracking: `invoiceNumber` and `invoiceEmailSent` fields on purchases table
     - Hospital details in footer: Sakra IKOC Limited, L 166, 5th Main, 3rd Floor, Service Road, Sector 6, HSR Layout, Bengaluru, Karnataka 560102
-    - **Invoice PDF attachment**: PDF is attached to email via both SMTP (nodemailer attachments) and EWS (AddFileAttachment)
+    - **Invoice PDF attachment**: PDF is attached via SMTP (nodemailer attachments); EWS sends email without PDF attachment (library limitation with Exchange server schema validation). `SendEmailResult` includes `attachmentsSkipped` flag when EWS skips attachments.
+    - **EWS HTML constraint**: Invoice HTML must use XHTML-compatible self-closing tags (e.g., `<br/>` not `<br>`) to avoid EWS XML schema validation errors
     - **Admin invoice actions** (in redeem page when purchase is selected):
       - Download PDF: `GET /api/admin/purchases/:purchaseId/invoice-pdf`
       - Send invoice email: `POST /api/admin/purchases/:purchaseId/send-invoice` (body: `{ email }`)

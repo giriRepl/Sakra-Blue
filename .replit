@@ -47,3 +47,4 @@ integrations = ["javascript_database:1.0.0"]
 EWS_AUTH_TYPE = "ntlm"
 EWS_DOMAIN = "SAKRAWORLDHOSPITAL"
 EWS_REJECT_UNAUTHORIZED = "false"
+SMTP_REJECT_UNAUTHORIZED = "false"

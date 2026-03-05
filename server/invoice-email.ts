@@ -26,12 +26,7 @@ export function generateInvoiceNumber(purchaseDate: Date): string {
 export function buildInvoiceEmailHtml(data: InvoiceData): string {
   const formattedDate = format(data.purchaseDate, "dd MMM yyyy");
 
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
+  return `<html>
 <body style="margin:0;padding:0;background-color:#f4f4f7;font-family:Arial,Helvetica,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f7;padding:32px 16px;">
     <tr>
@@ -103,7 +98,7 @@ export function buildInvoiceEmailHtml(data: InvoiceData): string {
                 <tr>
                   <td align="center">
                     <p style="margin:0;font-size:12px;font-weight:600;color:#374151;">Sakra IKOC Limited</p>
-                    <p style="margin:4px 0 0;font-size:11px;color:#9ca3af;line-height:1.5;">L 166, 5th Main, 3rd Floor, Service Road,<br>Sector 6, HSR Layout, Bengaluru, Karnataka 560102</p>
+                    <p style="margin:4px 0 0;font-size:11px;color:#9ca3af;line-height:1.5;">L 166, 5th Main, 3rd Floor, Service Road,<br/>Sector 6, HSR Layout, Bengaluru, Karnataka 560102</p>
                   </td>
                 </tr>
               </table>

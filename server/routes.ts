@@ -300,7 +300,7 @@ export async function registerRoutes(
               });
               if (result.success && updatedPurchase) {
                 await storage.updatePurchaseInvoice(updatedPurchase.id, { invoiceNumber: invoiceNum, invoiceEmailSent: true });
-                console.log("[Invoice] Email sent to", customer.email);
+                console.log("[Invoice] Email sent to", customer.email, result.attachmentsSkipped ? "(PDF attachment skipped — sent via EWS)" : "");
               } else {
                 console.error("[Invoice] Email failed:", result.error);
               }
@@ -401,7 +401,7 @@ export async function registerRoutes(
                 });
                 if (result.success) {
                   await storage.updatePurchaseInvoice(p.id, { invoiceNumber: p.invoiceNumber!, invoiceEmailSent: true });
-                  console.log("[Invoice] Deferred email sent to", email, "for purchase", p.id);
+                  console.log("[Invoice] Deferred email sent to", email, "for purchase", p.id, result.attachmentsSkipped ? "(PDF attachment skipped — sent via EWS)" : "");
                 } else {
                   console.error("[Invoice] Deferred email failed:", result.error);
                 }
@@ -885,7 +885,7 @@ export async function registerRoutes(
 
       if (result.success) {
         await storage.updatePurchaseInvoice(purchase.id, { invoiceNumber, invoiceEmailSent: true });
-        res.json({ success: true, email: targetEmail, invoiceNumber });
+        res.json({ success: true, email: targetEmail, invoiceNumber, attachmentsSkipped: result.attachmentsSkipped || false });
       } else {
         res.status(500).json({ error: result.error || "Failed to send invoice email" });
       }
