@@ -35,7 +35,7 @@ export function buildInvoiceEmailHtml(data: InvoiceData): string {
 
           <tr>
             <td style="background-color:#9d174d;padding:28px 32px;text-align:center;">
-              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.5px;">Sakra IKOC Limited</h1>
+              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.5px;">Takshasila Hospitals Operating Private Limited</h1>
               <p style="margin:6px 0 0;color:#fce7f3;font-size:13px;">Healthcare Package Invoice</p>
             </td>
           </tr>
@@ -97,8 +97,8 @@ export function buildInvoiceEmailHtml(data: InvoiceData): string {
               <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #e5e7eb;padding-top:16px;">
                 <tr>
                   <td align="center">
-                    <p style="margin:0;font-size:12px;font-weight:600;color:#374151;">Sakra IKOC Limited</p>
-                    <p style="margin:4px 0 0;font-size:11px;color:#9ca3af;line-height:1.5;">L 166, 5th Main, 3rd Floor, Service Road,<br/>Sector 6, HSR Layout, Bengaluru, Karnataka 560102</p>
+                    <p style="margin:0;font-size:12px;font-weight:600;color:#374151;">Takshasila Hospitals Operating Private Limited</p>
+                    <p style="margin:4px 0 0;font-size:11px;color:#9ca3af;line-height:1.5;">Sy No 52/2 and 52/3, Sakra World Hospital, Outer Ring Road,<br/>Marathahalli, Devarabeesanahalli, Varthur Hobli,<br/>Bengaluru Urban, Karnataka, 560103</p>
                   </td>
                 </tr>
               </table>

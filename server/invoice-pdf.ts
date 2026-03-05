@@ -32,7 +32,7 @@ export function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> {
 
     doc.rect(0, 0, doc.page.width, 100).fill("#9d174d");
     doc.fontSize(22).fillColor("#ffffff").font("Helvetica-Bold")
-      .text("Sakra IKOC Limited", 50, 30, { width: pageWidth, align: "center" });
+      .text("Takshasila Hospitals Operating Private Limited", 50, 30, { width: pageWidth, align: "center" });
     doc.fontSize(11).fillColor("#fce7f3").font("Helvetica")
       .text("Healthcare Package Invoice", 50, 58, { width: pageWidth, align: "center" });
 
@@ -85,10 +85,10 @@ export function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> {
 
     const footerY = thankY + 52;
     doc.fontSize(10).fillColor("#374151").font("Helvetica-Bold")
-      .text("Sakra IKOC Limited", 50, footerY, { width: pageWidth, align: "center" });
+      .text("Takshasila Hospitals Operating Private Limited", 50, footerY, { width: pageWidth, align: "center" });
     doc.fontSize(9).fillColor("#9ca3af").font("Helvetica")
-      .text("L 166, 5th Main, 3rd Floor, Service Road,", 50, footerY + 16, { width: pageWidth, align: "center" })
-      .text("Sector 6, HSR Layout, Bengaluru, Karnataka 560102", 50, footerY + 28, { width: pageWidth, align: "center" });
+      .text("Sy No 52/2 and 52/3, Sakra World Hospital, Outer Ring Road,", 50, footerY + 16, { width: pageWidth, align: "center" })
+      .text("Marathahalli, Devarabeesanahalli, Varthur Hobli, Bengaluru Urban, Karnataka, 560103", 50, footerY + 28, { width: pageWidth, align: "center" });
 
     doc.end();
   });

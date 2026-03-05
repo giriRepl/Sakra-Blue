@@ -138,7 +138,7 @@ Preferred communication style: Simple, everyday language.
     - Content: Patient name, package name, amount paid, date, hospital name & address
     - Two trigger points: (1) immediately after payment verification if customer has email on file, (2) deferred after profile update for first-time customers
     - Tracking: `invoiceNumber` and `invoiceEmailSent` fields on purchases table
-    - Hospital details in footer: Sakra IKOC Limited, L 166, 5th Main, 3rd Floor, Service Road, Sector 6, HSR Layout, Bengaluru, Karnataka 560102
+    - Hospital details in footer: Takshasila Hospitals Operating Private Limited, Sy No 52/2 and 52/3, Sakra World Hospital, Outer Ring Road, Marathahalli, Devarabeesanahalli, Varthur Hobli, Bengaluru Urban, Karnataka, 560103
     - **Invoice PDF attachment**: PDF is attached via SMTP (nodemailer attachments); EWS sends email without PDF attachment (library limitation with Exchange server schema validation). `SendEmailResult` includes `attachmentsSkipped` flag when EWS skips attachments.
     - **EWS HTML constraint**: Invoice HTML must use XHTML-compatible self-closing tags (e.g., `<br/>` not `<br>`) to avoid EWS XML schema validation errors
     - **Admin invoice actions** (in redeem page when purchase is selected):
