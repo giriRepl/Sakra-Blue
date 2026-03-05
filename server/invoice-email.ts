@@ -9,12 +9,11 @@ interface InvoiceData {
 }
 
 function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
+  const formatted = new Intl.NumberFormat("en-IN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
+  return `Rs. ${formatted}`;
 }
 
 export function generateInvoiceNumber(purchaseDate: Date): string {
