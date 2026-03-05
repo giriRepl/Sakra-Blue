@@ -133,11 +133,17 @@ Preferred communication style: Simple, everyday language.
   - API: `POST /api/superadmin/send-test-email` (with optional `method` field), `GET /api/superadmin/email-health`
   - **Invoice Email**: Sent automatically after successful Razorpay payment
     - Template: `server/invoice-email.ts` — `generateInvoiceNumber()`, `buildInvoiceEmailHtml()`, `buildInvoiceEmailSubject()`
+    - PDF generation: `server/invoice-pdf.ts` — `generateInvoicePdf()` using pdfkit
     - Invoice number format: `SIKOC-YYYYMMDD-XXXX` (random 4-digit suffix)
     - Content: Patient name, package name, amount paid, date, hospital name & address
     - Two trigger points: (1) immediately after payment verification if customer has email on file, (2) deferred after profile update for first-time customers
     - Tracking: `invoiceNumber` and `invoiceEmailSent` fields on purchases table
     - Hospital details in footer: Sakra IKOC Limited, L 166, 5th Main, 3rd Floor, Service Road, Sector 6, HSR Layout, Bengaluru, Karnataka 560102
+    - **Invoice PDF attachment**: PDF is attached to email via both SMTP (nodemailer attachments) and EWS (AddFileAttachment)
+    - **Admin invoice actions** (in redeem page when purchase is selected):
+      - Download PDF: `GET /api/admin/purchases/:purchaseId/invoice-pdf`
+      - Send invoice email: `POST /api/admin/purchases/:purchaseId/send-invoice` (body: `{ email }`)
+      - If admin provides an email, it's saved to the customer's profile automatically
 
 ### Build & Development
 - **Vite**: Frontend build tool with HMR

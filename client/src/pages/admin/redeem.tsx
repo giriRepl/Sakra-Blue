@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Search, CheckCircle, Loader2, Package, Calendar, Phone, User, MapPin, Edit, Baby, Users, KeyRound } from "lucide-react";
+import { Search, CheckCircle, Loader2, Package, Calendar, Phone, User, MapPin, Edit, Baby, Users, KeyRound, Download, Mail, Send, FileText } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -54,6 +54,10 @@ export default function AdminRedeemPage() {
   const [otpSending, setOtpSending] = useState(false);
   const [otpSmsSent, setOtpSmsSent] = useState(false);
   const [otpMobileLast4, setOtpMobileLast4] = useState("");
+
+  const [isInvoiceEmailDialogOpen, setIsInvoiceEmailDialogOpen] = useState(false);
+  const [invoiceEmail, setInvoiceEmail] = useState("");
+  const [invoicePurchaseId, setInvoicePurchaseId] = useState("");
 
   const profileForm = useForm<z.infer<typeof customerProfileSchema>>({
     resolver: zodResolver(customerProfileSchema),
@@ -121,6 +125,57 @@ export default function AdminRedeemPage() {
       });
     },
   });
+
+  const sendInvoiceMutation = useMutation({
+    mutationFn: async (data: { purchaseId: string; email: string }) => {
+      const res = await apiRequest("POST", `/api/admin/purchases/${data.purchaseId}/send-invoice`, { email: data.email });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Invoice Sent",
+        description: `Invoice sent to ${data.email}`,
+      });
+      setIsInvoiceEmailDialogOpen(false);
+      setInvoiceEmail("");
+      setInvoicePurchaseId("");
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/purchases", searchMobile] });
+      refetch();
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Invoice Email Failed",
+        description: err.message || "Failed to send invoice email.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDownloadInvoice = async (purchaseId: string) => {
+    try {
+      const res = await fetch(`/api/admin/purchases/${purchaseId}/invoice-pdf`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to download");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `invoice-${purchaseId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: "Download Failed", description: "Failed to download invoice PDF.", variant: "destructive" });
+    }
+  };
+
+  const handleSendInvoiceClick = (purchase: PurchaseWithDetails) => {
+    setInvoicePurchaseId(purchase.id);
+    setInvoiceEmail(purchase.customer?.email || "");
+    setIsInvoiceEmailDialogOpen(true);
+  };
 
   const handleEditCustomer = (customer: Customer) => {
     setEditingCustomer(customer);
@@ -561,6 +616,36 @@ export default function AdminRedeemPage() {
                       )}
                       Redeem {selectedServices.length} Service{selectedServices.length !== 1 ? "s" : ""}
                     </Button>
+
+                    <Separator className="my-4" />
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                        <FileText className="h-3.5 w-3.5" />
+                        Invoice
+                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => handleDownloadInvoice(selectedPurchase.id)}
+                          data-testid="button-download-invoice"
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Download PDF
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => handleSendInvoiceClick(selectedPurchase)}
+                          data-testid="button-send-invoice"
+                        >
+                          <Mail className="h-4 w-4 mr-2" />
+                          Email Invoice
+                        </Button>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               ) : (
@@ -777,6 +862,56 @@ export default function AdminRedeemPage() {
                 )}
                 Confirm Redemption
               </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isInvoiceEmailDialogOpen} onOpenChange={setIsInvoiceEmailDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5" />
+                Send Invoice via Email
+              </DialogTitle>
+              <DialogDescription>
+                Enter the email address to send the invoice. This will also be saved to the customer's profile.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium" htmlFor="invoice-email">Email Address</label>
+                <Input
+                  id="invoice-email"
+                  type="email"
+                  placeholder="customer@example.com"
+                  value={invoiceEmail}
+                  onChange={(e) => setInvoiceEmail(e.target.value)}
+                  data-testid="input-invoice-email"
+                />
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => { setIsInvoiceEmailDialogOpen(false); setInvoiceEmail(""); }}
+                  data-testid="button-cancel-invoice"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1"
+                  disabled={!invoiceEmail || !invoiceEmail.includes("@") || sendInvoiceMutation.isPending}
+                  onClick={() => sendInvoiceMutation.mutate({ purchaseId: invoicePurchaseId, email: invoiceEmail })}
+                  data-testid="button-confirm-send-invoice"
+                >
+                  {sendInvoiceMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4 mr-2" />
+                  )}
+                  Send Invoice
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>

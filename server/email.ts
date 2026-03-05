@@ -20,6 +20,12 @@ interface SendEmailResult {
   details?: string;
 }
 
+interface EmailAttachment {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+}
+
 interface EmailDto {
   to: string;
   subject: string;
@@ -27,6 +33,7 @@ interface EmailDto {
   cc?: string;
   bcc?: string;
   isHtml?: boolean;
+  attachments?: EmailAttachment[];
 }
 
 const exchangeVersionMap: Record<string, ExchangeVersion> = {
@@ -118,6 +125,13 @@ async function sendViaSmtp(dto: EmailDto): Promise<SendEmailResult> {
 
     if (dto.cc) mailOptions.cc = dto.cc;
     if (dto.bcc) mailOptions.bcc = dto.bcc;
+    if (dto.attachments && dto.attachments.length > 0) {
+      mailOptions.attachments = dto.attachments.map(a => ({
+        filename: a.filename,
+        content: a.content,
+        contentType: a.contentType || "application/pdf",
+      }));
+    }
 
     const info = await transporter.sendMail(mailOptions);
     console.log("[SMTP] Email sent successfully, messageId:", info.messageId);
@@ -219,7 +233,19 @@ async function attemptEwsSend(
       dto.bcc.split(",").map(e => e.trim()).filter(Boolean).forEach(e => message.BccRecipients.Add(e));
     }
 
-    await message.SendAndSaveCopy();
+    if (dto.attachments && dto.attachments.length > 0) {
+      for (const att of dto.attachments) {
+        const base64Content = att.content.toString("base64");
+        message.Attachments.AddFileAttachment(att.filename, base64Content);
+      }
+      await message.Save();
+      for (let i = 0; i < message.Attachments.Count; i++) {
+        await message.Attachments._getItem(i).Load();
+      }
+      await message.SendAndSaveCopy();
+    } else {
+      await message.SendAndSaveCopy();
+    }
 
     if (!rejectUnauthorized) {
       process.env.NODE_TLS_REJECT_UNAUTHORIZED = "1";
@@ -314,19 +340,21 @@ async function sendViaEws(dto: EmailDto): Promise<SendEmailResult> {
 export async function sendEmail(
   to: string,
   subject: string,
-  body: string
+  body: string,
+  options?: { attachments?: EmailAttachment[] }
 ): Promise<SendEmailResult> {
+  const dto: EmailDto = { to, subject, body, attachments: options?.attachments };
   const smtpConfig = getSmtpConfig();
   if (smtpConfig) {
     console.log("[Email] Trying SMTP first...");
-    const smtpResult = await sendViaSmtp({ to, subject, body });
+    const smtpResult = await sendViaSmtp(dto);
     if (smtpResult.success) return smtpResult;
     console.log("[Email] SMTP failed, falling back to EWS...");
   } else {
     console.log("[Email] SMTP not configured, trying EWS directly...");
   }
 
-  return sendViaEws({ to, subject, body });
+  return sendViaEws(dto);
 }
 
 export async function sendEmailSmtp(

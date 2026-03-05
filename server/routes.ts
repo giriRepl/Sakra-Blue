@@ -9,6 +9,7 @@ import Razorpay from "razorpay";
 import { sendSms, sendTemplatedSms, generateNumericOtp } from "./sms";
 import { sendEmail, sendEmailSmtp, sendEmailEws, checkEmailHealth } from "./email";
 import { generateInvoiceNumber, buildInvoiceEmailHtml, buildInvoiceEmailSubject } from "./invoice-email";
+import { generateInvoicePdf } from "./invoice-pdf";
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID || "",
@@ -284,15 +285,19 @@ export async function registerRoutes(
         }
 
         if (customer.email) {
-          const html = buildInvoiceEmailHtml({
+          const invoiceData = {
             invoiceNumber: invoiceNum,
             customerName: customer.name || "Customer",
             packageName: pkg.title,
             totalAmount: pendingPurchase.amountPaid,
             purchaseDate: updatedPurchase?.purchaseDate || new Date(),
-          });
-          sendEmail(customer.email, buildInvoiceEmailSubject(invoiceNum), html)
-            .then(async (result) => {
+          };
+          const html = buildInvoiceEmailHtml(invoiceData);
+          generateInvoicePdf(invoiceData)
+            .then(async (pdfBuffer) => {
+              const result = await sendEmail(customer.email!, buildInvoiceEmailSubject(invoiceNum), html, {
+                attachments: [{ filename: `${invoiceNum}.pdf`, content: pdfBuffer, contentType: "application/pdf" }],
+              });
               if (result.success && updatedPurchase) {
                 await storage.updatePurchaseInvoice(updatedPurchase.id, { invoiceNumber: invoiceNum, invoiceEmailSent: true });
                 console.log("[Invoice] Email sent to", customer.email);
@@ -300,7 +305,7 @@ export async function registerRoutes(
                 console.error("[Invoice] Email failed:", result.error);
               }
             })
-            .catch(err => console.error("[Invoice] Email error:", err));
+            .catch(err => console.error("[Invoice] Email/PDF error:", err));
         }
       }
 
@@ -381,15 +386,19 @@ export async function registerRoutes(
         const customerPurchases = await storage.getPurchasesByCustomer(customer.id);
         for (const p of customerPurchases) {
           if (p.paymentStatus === "paid" && p.invoiceNumber && !p.invoiceEmailSent) {
-            const html = buildInvoiceEmailHtml({
+            const invoiceData = {
               invoiceNumber: p.invoiceNumber,
               customerName: name || customer.name || "Customer",
               packageName: p.packageSnapshot?.title || "Healthcare Package",
               totalAmount: p.amountPaid,
               purchaseDate: p.purchaseDate,
-            });
-            sendEmail(email, buildInvoiceEmailSubject(p.invoiceNumber), html)
-              .then(async (result) => {
+            };
+            const html = buildInvoiceEmailHtml(invoiceData);
+            generateInvoicePdf(invoiceData)
+              .then(async (pdfBuffer) => {
+                const result = await sendEmail(email, buildInvoiceEmailSubject(p.invoiceNumber!), html, {
+                  attachments: [{ filename: `${p.invoiceNumber}.pdf`, content: pdfBuffer, contentType: "application/pdf" }],
+                });
                 if (result.success) {
                   await storage.updatePurchaseInvoice(p.id, { invoiceNumber: p.invoiceNumber!, invoiceEmailSent: true });
                   console.log("[Invoice] Deferred email sent to", email, "for purchase", p.id);
@@ -397,7 +406,7 @@ export async function registerRoutes(
                   console.error("[Invoice] Deferred email failed:", result.error);
                 }
               })
-              .catch(err => console.error("[Invoice] Deferred email error:", err));
+              .catch(err => console.error("[Invoice] Deferred email/PDF error:", err));
           }
         }
       }
@@ -806,6 +815,83 @@ export async function registerRoutes(
       res.json(customer);
     } catch (error) {
       res.status(500).json({ error: "Failed to update customer profile" });
+    }
+  });
+
+  app.get("/api/admin/purchases/:purchaseId/invoice-pdf", requireAdminAuth, async (req, res) => {
+    try {
+      const purchase = await storage.getPurchase(req.params.purchaseId);
+      if (!purchase) {
+        return res.status(404).json({ error: "Purchase not found" });
+      }
+
+      const invoiceNumber = purchase.invoiceNumber || generateInvoiceNumber(purchase.purchaseDate);
+      if (!purchase.invoiceNumber) {
+        await storage.updatePurchaseInvoice(purchase.id, { invoiceNumber, invoiceEmailSent: false });
+      }
+
+      const pdfBuffer = await generateInvoicePdf({
+        invoiceNumber,
+        customerName: purchase.customer?.name || "Customer",
+        packageName: purchase.packageSnapshot?.title || "Healthcare Package",
+        totalAmount: purchase.amountPaid,
+        purchaseDate: purchase.purchaseDate,
+      });
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${invoiceNumber}.pdf"`);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error("[Invoice PDF] Error:", error);
+      res.status(500).json({ error: "Failed to generate invoice PDF" });
+    }
+  });
+
+  app.post("/api/admin/purchases/:purchaseId/send-invoice", requireAdminAuth, async (req, res) => {
+    try {
+      const { email: providedEmail } = req.body;
+      const purchase = await storage.getPurchase(req.params.purchaseId);
+      if (!purchase) {
+        return res.status(404).json({ error: "Purchase not found" });
+      }
+
+      const targetEmail = providedEmail || purchase.customer?.email;
+      if (!targetEmail) {
+        return res.status(400).json({ error: "No email address provided or on file" });
+      }
+
+      if (providedEmail && purchase.customer && providedEmail !== purchase.customer.email) {
+        await storage.updateCustomerProfile(purchase.customerId, { email: providedEmail });
+      }
+
+      const invoiceNumber = purchase.invoiceNumber || generateInvoiceNumber(purchase.purchaseDate);
+      if (!purchase.invoiceNumber) {
+        await storage.updatePurchaseInvoice(purchase.id, { invoiceNumber, invoiceEmailSent: false });
+      }
+
+      const invoiceData = {
+        invoiceNumber,
+        customerName: purchase.customer?.name || "Customer",
+        packageName: purchase.packageSnapshot?.title || "Healthcare Package",
+        totalAmount: purchase.amountPaid,
+        purchaseDate: purchase.purchaseDate,
+      };
+
+      const html = buildInvoiceEmailHtml(invoiceData);
+      const pdfBuffer = await generateInvoicePdf(invoiceData);
+      const result = await sendEmail(targetEmail, buildInvoiceEmailSubject(invoiceNumber), html, {
+        attachments: [{ filename: `${invoiceNumber}.pdf`, content: pdfBuffer, contentType: "application/pdf" }],
+      });
+
+      if (result.success) {
+        await storage.updatePurchaseInvoice(purchase.id, { invoiceNumber, invoiceEmailSent: true });
+        res.json({ success: true, email: targetEmail, invoiceNumber });
+      } else {
+        res.status(500).json({ error: result.error || "Failed to send invoice email" });
+      }
+    } catch (error: any) {
+      console.error("[Invoice Send] Error:", error);
+      res.status(500).json({ error: error?.message || "Failed to send invoice" });
     }
   });
 
