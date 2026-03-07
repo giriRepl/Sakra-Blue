@@ -38,7 +38,7 @@ const pricingTierFormSchema = z.object({
 
 const packageFormSchema = z.object({
   title: z.string().min(1, "Title is required"),
-  description: z.string().min(1, "Description is required"),
+  description: z.string().optional(),
   services: z.array(serviceSchema).min(1, "At least one service is required"),
   validityMonths: z.number().min(1, "Validity must be at least 1 month"),
   pricingTiers: z.array(pricingTierFormSchema).min(1, "At least one pricing tier is required"),

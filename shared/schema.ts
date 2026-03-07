@@ -45,7 +45,7 @@ export function getLowestPrice(pkg: { pricingTiers?: PricingTier[]; price: numbe
 export const packages = pgTable("packages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   title: text("title").notNull(),
-  description: text("description").notNull(),
+  description: text("description"),
   services: jsonb("services").$type<Service[]>().notNull().default([]),
   validityMonths: integer("validity_months").notNull(),
   price: integer("price").notNull().default(0), // legacy - kept for backward compat

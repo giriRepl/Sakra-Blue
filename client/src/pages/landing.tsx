@@ -327,9 +327,11 @@ export default function LandingPage() {
                     )}
                     <CardHeader className="pb-3">
                       <CardTitle className="text-lg">{pkg.title}</CardTitle>
-                      <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                        {pkg.description}
-                      </p>
+                      {pkg.description && (
+                        <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+                          {pkg.description}
+                        </p>
+                      )}
                     </CardHeader>
                     <CardContent className="flex-1">
                       <div className="mb-4">

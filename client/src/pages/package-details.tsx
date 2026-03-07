@@ -119,7 +119,7 @@ export default function PackageDetailsPage() {
           </CardHeader>
 
           <CardContent className="pt-6">
-            <p className="text-muted-foreground mb-6">{pkg.description}</p>
+            {pkg.description && <p className="text-muted-foreground mb-6">{pkg.description}</p>}
 
             {/* Pricing Tiers */}
             {tiers.length > 0 && (
