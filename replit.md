@@ -102,9 +102,15 @@ Preferred communication style: Simple, everyday language.
   - Server SDK: `razorpay` npm package for order creation
   - Client: Razorpay Checkout.js loaded in `client/index.html`
   - Flow: Create order (backend) -> Open Razorpay Checkout (frontend) -> Verify signature (backend) -> Create purchase
-  - Secrets: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`
+  - Secrets: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`
   - Payment fields on purchases table: `razorpayOrderId`, `razorpayPaymentId`, `paymentStatus`
   - Signature verification uses HMAC SHA256 with `order_id|payment_id`
+  - **Webhook**: `POST /api/razorpay/webhook` handles `payment.captured` events
+    - Verifies signature using `RAZORPAY_WEBHOOK_SECRET` + HMAC SHA256 of raw body
+    - Idempotent: skips if purchase already marked paid
+    - Performs same post-payment actions as verify-payment (mark paid, SMS, invoice email)
+    - Ensures purchases are recorded even if user closes browser after payment
+    - Configure in Razorpay Dashboard → Webhooks → URL: `https://<your-domain>/api/razorpay/webhook`
 
 ### SMS Gateway
 - **Sakra SMS (napses.in)**: SMS delivery via JSON API

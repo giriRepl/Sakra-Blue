@@ -316,6 +316,115 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/razorpay/webhook", async (req: Request, res: Response) => {
+    try {
+      const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+      if (!webhookSecret) {
+        console.warn("[Webhook] RAZORPAY_WEBHOOK_SECRET not configured, skipping");
+        return res.status(200).json({ status: "ignored" });
+      }
+
+      const signature = req.headers["x-razorpay-signature"] as string;
+      if (!signature) {
+        return res.status(400).json({ error: "Missing signature" });
+      }
+
+      const rawBody = (req as any).rawBody;
+      const expectedSignature = crypto
+        .createHmac("sha256", webhookSecret)
+        .update(rawBody)
+        .digest("hex");
+
+      if (signature !== expectedSignature) {
+        console.error("[Webhook] Signature mismatch");
+        return res.status(400).json({ error: "Invalid signature" });
+      }
+
+      const event = req.body;
+      console.log("[Webhook] Received event:", event.event);
+
+      if (event.event === "payment.captured") {
+        const payment = event.payload?.payment?.entity;
+        if (!payment) {
+          return res.status(200).json({ status: "no payment entity" });
+        }
+
+        const orderId = payment.order_id;
+        const paymentId = payment.id;
+
+        const purchase = await storage.getPurchaseByRazorpayOrderId(orderId);
+        if (!purchase) {
+          console.warn("[Webhook] No purchase found for order:", orderId);
+          return res.status(200).json({ status: "no matching purchase" });
+        }
+
+        if (purchase.paymentStatus === "paid") {
+          console.log("[Webhook] Purchase already marked paid:", purchase.id);
+          return res.status(200).json({ status: "already processed" });
+        }
+
+        if (Number(payment.amount) !== purchase.amountPaid * 100) {
+          console.error("[Webhook] Amount mismatch for order:", orderId);
+          return res.status(200).json({ status: "amount mismatch" });
+        }
+
+        const updatedPurchase = await storage.updatePurchasePayment(purchase.id, {
+          razorpayPaymentId: paymentId,
+          paymentStatus: "paid",
+        });
+
+        console.log("[Webhook] Purchase marked as paid:", purchase.id);
+
+        const customer = await storage.getCustomer(purchase.customerId);
+        if (customer) {
+          await storage.deleteOtpSession(customer.mobile);
+
+          const pkg = purchase.packageSnapshot;
+          sendTemplatedSms(customer.mobile, "Nap_Purchase", {
+            "{#Package#}": "",
+            "{#Package_Name#}": pkg.title,
+            "{#F_Name#}": customer.name || "",
+            "{#L_Name#}": "",
+          }).catch(err => console.error("[Webhook] Purchase SMS error:", err));
+
+          const invoiceNum = generateInvoiceNumber(updatedPurchase?.purchaseDate || new Date());
+          if (updatedPurchase) {
+            await storage.updatePurchaseInvoice(updatedPurchase.id, { invoiceNumber: invoiceNum, invoiceEmailSent: false });
+          }
+
+          if (customer.email) {
+            const invoiceData = {
+              invoiceNumber: invoiceNum,
+              customerName: customer.name || "Customer",
+              packageName: pkg.title,
+              totalAmount: purchase.amountPaid,
+              purchaseDate: updatedPurchase?.purchaseDate || new Date(),
+            };
+            const html = buildInvoiceEmailHtml(invoiceData);
+            generateInvoicePdf(invoiceData)
+              .then(async (pdfBuffer) => {
+                const result = await sendEmail(customer.email!, buildInvoiceEmailSubject(invoiceNum), html, {
+                  attachments: [{ filename: `${invoiceNum}.pdf`, content: pdfBuffer, contentType: "application/pdf" }],
+                });
+                if (result.success && updatedPurchase) {
+                  await storage.updatePurchaseInvoice(updatedPurchase.id, { invoiceNumber: invoiceNum, invoiceEmailSent: true });
+                  console.log("[Webhook] Invoice email sent to", customer.email);
+                } else {
+                  console.error("[Webhook] Invoice email failed:", result.error);
+                }
+              })
+              .catch(err => console.error("[Webhook] Invoice PDF error:", err));
+          }
+        }
+      }
+
+      res.status(200).json({ status: "ok" });
+    } catch (error: any) {
+      console.error("[Webhook] Error:", error?.message || error);
+      res.status(200).json({ status: "error" });
+    }
+  });
+
   // Add members to purchase
   app.post("/api/purchases/:purchaseId/members", async (req, res) => {
     try {
