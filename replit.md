@@ -117,6 +117,10 @@ Preferred communication style: Simple, everyday language.
   - Endpoint: `https://sakrasms-prod.napses.in/send-sms`
   - Auth: `SMS_API_SECRET` in request body (`secret` field)
   - Utility: `server/sms.ts` — `sendSms()`, `sendTemplatedSms()`, `generateNumericOtp()`
+  - **Dual-server redundancy**: Primary (`sakrasms-prod.napses.in`), Secondary fallback (`164.52.203.149`)
+    - On primary failure, automatically retries via secondary server
+    - `serverUsed` column in `sms_logs` tracks which server delivered: `primary`, `secondary`, or `both_failed`
+    - Super Admin SMS Logs page shows server column with color-coded badges
   - Templates stored in DB (`sms_templates` table), looked up by `name`
   - Four SMS use cases integrated:
     1. **OTP** (Nap_Otp): Login & purchase verification — placeholder `{#1#}`

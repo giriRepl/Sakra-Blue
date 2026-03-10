@@ -1,23 +1,23 @@
 import { storage } from "./storage";
 
-const SMS_API_URL = "https://sakrasms-prod.napses.in/send-sms";
+const PRIMARY_SMS_URL = "https://sakrasms-prod.napses.in/send-sms";
+const SECONDARY_SMS_URL = "http://164.52.203.149/send-sms";
 
 interface SendSmsResult {
   success: boolean;
   error?: string;
+  serverUsed?: "primary" | "secondary";
 }
 
-export async function sendSms(mobile: string, message: string, templateId: string, templateName?: string): Promise<SendSmsResult> {
-  const apiSecret = process.env.SMS_API_SECRET;
-  if (!apiSecret) {
-    console.error("SMS_API_SECRET not configured");
-    await logFailure(mobile, "SMS_API_SECRET not configured");
-    await logSmsCall(mobile, message, templateName, templateId, "failed", "SMS_API_SECRET not configured");
-    return { success: false, error: "SMS credentials not configured" };
-  }
-
+async function attemptSmsSend(
+  url: string,
+  apiSecret: string,
+  mobile: string,
+  message: string,
+  templateId: string
+): Promise<{ ok: boolean; responseText: string; httpStatus?: number }> {
   try {
-    const response = await fetch(SMS_API_URL, {
+    const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -31,26 +31,58 @@ export async function sendSms(mobile: string, message: string, templateId: strin
     const responseText = await response.text();
 
     if (!response.ok) {
-      const reason = `SMS API returned HTTP ${response.status}: ${responseText}`;
-      console.error("SMS send error:", reason);
-      await logFailure(mobile, reason);
-      await logSmsCall(mobile, message, templateName, templateId, "failed", responseText);
-      return { success: false, error: reason };
+      return { ok: false, responseText: `HTTP ${response.status}: ${responseText}`, httpStatus: response.status };
     }
 
-    console.log(`SMS sent to ***${mobile.slice(-4)}: ${responseText}`);
-    await logSmsCall(mobile, message, templateName, templateId, "sent", responseText);
-    return { success: true };
+    return { ok: true, responseText };
   } catch (error: any) {
-    const reason = `SMS send exception: ${error.message || "Unknown error"}`;
-    console.error(reason);
-    await logFailure(mobile, reason);
-    await logSmsCall(mobile, message, templateName, templateId, "failed", reason);
-    return { success: false, error: reason };
+    return { ok: false, responseText: `Exception: ${error.message || "Unknown error"}` };
   }
 }
 
-async function logSmsCall(mobile: string, message: string, templateName: string | undefined, templateId: string | undefined, status: string, apiResponse?: string) {
+export async function sendSms(mobile: string, message: string, templateId: string, templateName?: string): Promise<SendSmsResult> {
+  const apiSecret = process.env.SMS_API_SECRET;
+  if (!apiSecret) {
+    console.error("SMS_API_SECRET not configured");
+    await logFailure(mobile, "SMS_API_SECRET not configured");
+    await logSmsCall(mobile, message, templateName, templateId, "failed", "SMS_API_SECRET not configured", null);
+    return { success: false, error: "SMS credentials not configured" };
+  }
+
+  const primaryResult = await attemptSmsSend(PRIMARY_SMS_URL, apiSecret, mobile, message, templateId);
+
+  if (primaryResult.ok) {
+    console.log(`SMS sent via primary to ***${mobile.slice(-4)}: ${primaryResult.responseText}`);
+    await logSmsCall(mobile, message, templateName, templateId, "sent", primaryResult.responseText, "primary");
+    return { success: true, serverUsed: "primary" };
+  }
+
+  console.warn(`SMS primary failed for ***${mobile.slice(-4)}: ${primaryResult.responseText}. Trying secondary...`);
+
+  const secondaryResult = await attemptSmsSend(SECONDARY_SMS_URL, apiSecret, mobile, message, templateId);
+
+  if (secondaryResult.ok) {
+    console.log(`SMS sent via secondary to ***${mobile.slice(-4)}: ${secondaryResult.responseText}`);
+    await logSmsCall(mobile, message, templateName, templateId, "sent", secondaryResult.responseText, "secondary");
+    return { success: true, serverUsed: "secondary" };
+  }
+
+  const reason = `Primary: ${primaryResult.responseText} | Secondary: ${secondaryResult.responseText}`;
+  console.error(`SMS failed on both servers for ***${mobile.slice(-4)}: ${reason}`);
+  await logFailure(mobile, reason);
+  await logSmsCall(mobile, message, templateName, templateId, "failed", reason, "both_failed");
+  return { success: false, error: reason };
+}
+
+async function logSmsCall(
+  mobile: string,
+  message: string,
+  templateName: string | undefined,
+  templateId: string | undefined,
+  status: string,
+  apiResponse?: string,
+  serverUsed?: string | null
+) {
   try {
     await storage.createSmsLog({
       mobile,
@@ -59,6 +91,7 @@ async function logSmsCall(mobile: string, message: string, templateName: string 
       templateId: templateId || null,
       status,
       apiResponse: apiResponse || null,
+      serverUsed: serverUsed || null,
     });
   } catch (e) {
     console.error("Failed to log SMS call:", e);
