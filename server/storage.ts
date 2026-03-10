@@ -216,7 +216,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .select({ count: sql<number>`count(*)` })
       .from(purchases)
-      .where(and(eq(purchases.packageId, id), eq(purchases.paymentStatus, "paid")));
+      .where(and(eq(purchases.packageId, id), eq(purchases.paymentStatus, "captured")));
     return (result[0]?.count ?? 0) > 0;
   }
 
@@ -255,7 +255,7 @@ export class DatabaseStorage implements IStorage {
     const purchaseList = await db
       .select()
       .from(purchases)
-      .where(and(eq(purchases.customerId, customerId), eq(purchases.paymentStatus, "paid")))
+      .where(and(eq(purchases.customerId, customerId), eq(purchases.paymentStatus, "captured")))
       .orderBy(desc(purchases.purchaseDate));
 
     const result: PurchaseWithDetails[] = [];

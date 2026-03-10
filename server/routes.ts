@@ -198,7 +198,7 @@ export async function registerRoutes(
       const order = await razorpay.orders.create({
         amount: selectedTier.price * 100,
         currency: "INR",
-        receipt: `rcpt_${Date.now()}`,
+        receipt: `NAPS_${Date.now()}`,
       });
 
       const expiryDate = addMonths(new Date(), pkg.validityMonths);
@@ -248,7 +248,7 @@ export async function registerRoutes(
         return res.status(400).json({ error: "No pending purchase found for this order" });
       }
 
-      if (pendingPurchase.paymentStatus === "paid") {
+      if (pendingPurchase.paymentStatus === "captured") {
         return res.json(pendingPurchase);
       }
 
@@ -259,7 +259,7 @@ export async function registerRoutes(
 
       const updatedPurchase = await storage.updatePurchasePayment(pendingPurchase.id, {
         razorpayPaymentId: razorpay_payment_id,
-        paymentStatus: "paid",
+        paymentStatus: "captured",
       });
 
       const customer = await storage.getCustomer(pendingPurchase.customerId);
@@ -358,8 +358,8 @@ export async function registerRoutes(
           return res.status(200).json({ status: "no matching purchase" });
         }
 
-        if (purchase.paymentStatus === "paid") {
-          console.log("[Webhook] Purchase already marked paid:", purchase.id);
+        if (purchase.paymentStatus === "captured") {
+          console.log("[Webhook] Purchase already marked captured:", purchase.id);
           return res.status(200).json({ status: "already processed" });
         }
 
@@ -370,7 +370,7 @@ export async function registerRoutes(
 
         const updatedPurchase = await storage.updatePurchasePayment(purchase.id, {
           razorpayPaymentId: paymentId,
-          paymentStatus: "paid",
+          paymentStatus: "captured",
         });
 
         console.log("[Webhook] Purchase marked as paid:", purchase.id);
@@ -494,7 +494,7 @@ export async function registerRoutes(
       if (email) {
         const customerPurchases = await storage.getPurchasesByCustomer(customer.id);
         for (const p of customerPurchases) {
-          if (p.paymentStatus === "paid" && p.invoiceNumber && !p.invoiceEmailSent) {
+          if (p.paymentStatus === "captured" && p.invoiceNumber && !p.invoiceEmailSent) {
             const invoiceData = {
               invoiceNumber: p.invoiceNumber,
               customerName: name || customer.name || "Customer",
