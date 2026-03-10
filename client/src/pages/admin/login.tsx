@@ -146,9 +146,6 @@ export default function AdminLoginPage() {
                       </FormItem>
                     )}
                   />
-                  <p className="text-sm text-muted-foreground">
-                    Test password: <Badge variant="secondary">saKra123</Badge>
-                  </p>
                   <Button
                     type="submit"
                     className="w-full h-12"
