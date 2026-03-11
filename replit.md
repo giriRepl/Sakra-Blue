@@ -105,12 +105,17 @@ Preferred communication style: Simple, everyday language.
   - Secrets: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`
   - Payment fields on purchases table: `razorpayOrderId`, `razorpayPaymentId`, `paymentStatus`
   - Signature verification uses HMAC SHA256 with `order_id|payment_id`
-  - **Webhook**: `POST /api/razorpay/webhook` handles `payment.captured` events
+  - **Webhook**: `POST /api/razorpay/webhook` handles `payment.captured` and `payment.failed` events
     - Verifies signature using `RAZORPAY_WEBHOOK_SECRET` + HMAC SHA256 of raw body
     - Idempotent: skips if purchase already marked paid
+    - **Event ID deduplication**: Stores processed webhook event IDs in `webhook_events` table; duplicate events are rejected
     - Performs same post-payment actions as verify-payment (mark paid, SMS, invoice email)
     - Ensures purchases are recorded even if user closes browser after payment
     - Configure in Razorpay Dashboard → Webhooks → URL: `https://<your-domain>/api/razorpay/webhook`
+  - **Payment failure tracking**: `payment_failures` table stores structured error details
+    - Captures: error code, description, source, step, reason, metadata
+    - Tracked from both verify-payment (signature/amount mismatch) and webhook (payment.failed events)
+    - Viewable in Super Admin → Payment Failures tab
 
 ### SMS Gateway
 - **Sakra SMS (napses.in)**: SMS delivery via JSON API

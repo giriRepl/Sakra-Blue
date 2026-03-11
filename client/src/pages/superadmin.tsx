@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
-import { Lock, Loader2, ArrowLeft, MessageSquare, Send, Phone, FileText, Plus, Pencil, Trash2, X, Save, AlertTriangle, ClipboardList, ChevronLeft, ChevronRight, Mail, Settings, ShoppingCart, Search } from "lucide-react";
+import { Lock, Loader2, ArrowLeft, MessageSquare, Send, Phone, FileText, Plus, Pencil, Trash2, X, Save, AlertTriangle, ClipboardList, ChevronLeft, ChevronRight, Mail, Settings, ShoppingCart, Search, CreditCard } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -1171,6 +1171,139 @@ function ConfigurationPage() {
   );
 }
 
+function PaymentFailuresPage() {
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+
+  const { data, isLoading } = useQuery<{ failures: any[]; total: number; page: number; limit: number }>({
+    queryKey: ["/api/superadmin/payment-failures", page],
+    queryFn: async () => {
+      const res = await superAdminFetch(`/api/superadmin/payment-failures?page=${page}&limit=${pageSize}`);
+      if (!res.ok) throw new Error("Failed to fetch payment failures");
+      return res.json();
+    },
+  });
+
+  const failures = data?.failures ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.ceil(total / pageSize);
+
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  };
+
+  const formatTime = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20" data-testid="loading-payment-failures">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div data-testid="page-payment-failures">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5" />
+            Payment Failures
+          </CardTitle>
+          <CardDescription>
+            {total === 0
+              ? "No payment failures recorded."
+              : `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} of ${total} failure${total === 1 ? "" : "s"}`}
+          </CardDescription>
+        </CardHeader>
+        {failures.length > 0 && (
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead data-testid="th-failure-date">Date</TableHead>
+                  <TableHead data-testid="th-failure-time">Time</TableHead>
+                  <TableHead data-testid="th-failure-source">Source</TableHead>
+                  <TableHead data-testid="th-failure-order">Order ID</TableHead>
+                  <TableHead data-testid="th-failure-code">Error Code</TableHead>
+                  <TableHead data-testid="th-failure-description">Description</TableHead>
+                  <TableHead data-testid="th-failure-step">Step</TableHead>
+                  <TableHead data-testid="th-failure-reason">Reason</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {failures.map((f: any) => (
+                  <TableRow key={f.id} data-testid={`row-failure-${f.id}`}>
+                    <TableCell className="whitespace-nowrap text-muted-foreground" data-testid={`cell-failure-date-${f.id}`}>
+                      {formatDate(f.createdAt)}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground" data-testid={`cell-failure-time-${f.id}`}>
+                      {formatTime(f.createdAt)}
+                    </TableCell>
+                    <TableCell data-testid={`cell-failure-source-${f.id}`}>
+                      <Badge variant={f.source === "webhook" ? "secondary" : "outline"} className="text-xs">
+                        {f.source}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs" data-testid={`cell-failure-order-${f.id}`}>
+                      {f.razorpayOrderId || "-"}
+                    </TableCell>
+                    <TableCell data-testid={`cell-failure-code-${f.id}`}>
+                      <Badge variant="destructive" className="text-xs">
+                        {f.errorCode || "UNKNOWN"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm max-w-[200px] truncate" data-testid={`cell-failure-desc-${f.id}`} title={f.errorDescription || ""}>
+                      {f.errorDescription || "-"}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground" data-testid={`cell-failure-step-${f.id}`}>
+                      {f.errorStep || "-"}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground" data-testid={`cell-failure-reason-${f.id}`}>
+                      {f.errorReason || "-"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between gap-4 pt-4 border-t mt-4">
+                <span className="text-sm text-muted-foreground">
+                  Page {page} of {totalPages}
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                    data-testid="button-failures-prev"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page >= totalPages}
+                    data-testid="button-failures-next"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 function AllPurchasesPage() {
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
@@ -1349,7 +1482,7 @@ function AllPurchasesPage() {
 }
 
 function SuperAdminPanel({ onLogout }: { onLogout: () => void }) {
-  const [activeTab, setActiveTab] = useState<"sms" | "templates" | "sms-logs" | "failure-logs" | "email" | "config" | "purchases">("sms");
+  const [activeTab, setActiveTab] = useState<"sms" | "templates" | "sms-logs" | "failure-logs" | "email" | "config" | "purchases" | "payment-failures">("sms");
 
   const style = {
     "--sidebar-width": "14rem",
@@ -1364,6 +1497,7 @@ function SuperAdminPanel({ onLogout }: { onLogout: () => void }) {
     email: "Email",
     config: "Configuration",
     purchases: "All Purchases",
+    "payment-failures": "Payment Failures",
   };
   const pageTitle = pageTitles[activeTab] || "Super Admin";
 
@@ -1419,6 +1553,12 @@ function SuperAdminPanel({ onLogout }: { onLogout: () => void }) {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
+                <SidebarMenuButton isActive={activeTab === "payment-failures"} onClick={() => setActiveTab("payment-failures")} data-testid="nav-payment-failures">
+                  <CreditCard className="h-4 w-4" />
+                  <span>Payment Failures</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
                 <SidebarMenuButton isActive={activeTab === "config"} onClick={() => setActiveTab("config")} data-testid="nav-config">
                   <Settings className="h-4 w-4" />
                   <span>Configuration</span>
@@ -1454,6 +1594,7 @@ function SuperAdminPanel({ onLogout }: { onLogout: () => void }) {
               {activeTab === "failure-logs" && <FailureLogsPage />}
               {activeTab === "email" && <EmailTestPage />}
               {activeTab === "purchases" && <AllPurchasesPage />}
+              {activeTab === "payment-failures" && <PaymentFailuresPage />}
               {activeTab === "config" && <ConfigurationPage />}
             </div>
           </main>

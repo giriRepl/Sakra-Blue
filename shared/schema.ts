@@ -341,6 +341,40 @@ export const appConfig = pgTable("app_config", {
 
 export type AppConfig = typeof appConfig.$inferSelect;
 
+export const webhookEvents = pgTable("webhook_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  eventId: text("event_id").notNull().unique(),
+  eventType: text("event_type").notNull(),
+  razorpayOrderId: text("razorpay_order_id"),
+  razorpayPaymentId: text("razorpay_payment_id"),
+  status: text("status").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type WebhookEvent = typeof webhookEvents.$inferSelect;
+
+export const paymentFailures = pgTable("payment_failures", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  razorpayOrderId: text("razorpay_order_id"),
+  razorpayPaymentId: text("razorpay_payment_id"),
+  source: text("source").notNull(),
+  errorCode: text("error_code"),
+  errorDescription: text("error_description"),
+  errorSource: text("error_source"),
+  errorStep: text("error_step"),
+  errorReason: text("error_reason"),
+  errorMetadata: jsonb("error_metadata"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertPaymentFailureSchema = createInsertSchema(paymentFailures).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPaymentFailure = z.infer<typeof insertPaymentFailureSchema>;
+export type PaymentFailure = typeof paymentFailures.$inferSelect;
+
 // Corporate with details
 export type CorporateWithDetails = Corporate & {
   package: Package;

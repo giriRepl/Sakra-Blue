@@ -242,6 +242,17 @@ export async function registerRoutes(
         .digest("hex");
 
       if (razorpay_signature !== expectedSign) {
+        await storage.createPaymentFailure({
+          razorpayOrderId: razorpay_order_id,
+          razorpayPaymentId: razorpay_payment_id,
+          source: "verify-payment",
+          errorCode: "SIGNATURE_MISMATCH",
+          errorDescription: "Payment signature verification failed",
+          errorSource: "server",
+          errorStep: "signature_verification",
+          errorReason: "invalid_signature",
+          errorMetadata: null,
+        });
         return res.status(400).json({ error: "Payment verification failed. Invalid signature." });
       }
 
@@ -256,6 +267,17 @@ export async function registerRoutes(
 
       const rzpOrder = await razorpay.orders.fetch(razorpay_order_id);
       if (Number(rzpOrder.amount) !== pendingPurchase.amountPaid * 100) {
+        await storage.createPaymentFailure({
+          razorpayOrderId: razorpay_order_id,
+          razorpayPaymentId: razorpay_payment_id,
+          source: "verify-payment",
+          errorCode: "AMOUNT_MISMATCH",
+          errorDescription: `Expected ${pendingPurchase.amountPaid * 100} paise, got ${rzpOrder.amount}`,
+          errorSource: "server",
+          errorStep: "amount_verification",
+          errorReason: "amount_mismatch",
+          errorMetadata: null,
+        });
         return res.status(400).json({ error: "Payment amount mismatch" });
       }
 
@@ -343,11 +365,22 @@ export async function registerRoutes(
       }
 
       const event = req.body;
-      console.log("[Webhook] Received event:", event.event);
+      const webhookEventId = event.event_id || event.id;
+      console.log("[Webhook] Received event:", event.event, "eventId:", webhookEventId);
+
+      if (webhookEventId) {
+        const alreadyProcessed = await storage.isWebhookEventProcessed(webhookEventId);
+        if (alreadyProcessed) {
+          console.log("[Webhook] Duplicate event skipped:", webhookEventId);
+          return res.status(200).json({ status: "duplicate" });
+        }
+      }
+
+      const payment = event.payload?.payment?.entity;
 
       if (event.event === "payment.captured") {
-        const payment = event.payload?.payment?.entity;
         if (!payment) {
+          if (webhookEventId) await storage.createWebhookEvent(webhookEventId, event.event, null, null, "no_payment_entity");
           return res.status(200).json({ status: "no payment entity" });
         }
 
@@ -357,16 +390,19 @@ export async function registerRoutes(
         const purchase = await storage.getPurchaseByRazorpayOrderId(orderId);
         if (!purchase) {
           console.warn("[Webhook] No purchase found for order:", orderId);
+          if (webhookEventId) await storage.createWebhookEvent(webhookEventId, event.event, orderId, paymentId, "no_matching_purchase");
           return res.status(200).json({ status: "no matching purchase" });
         }
 
         if (purchase.paymentStatus === "captured") {
           console.log("[Webhook] Purchase already marked captured:", purchase.id);
+          if (webhookEventId) await storage.createWebhookEvent(webhookEventId, event.event, orderId, paymentId, "already_processed");
           return res.status(200).json({ status: "already processed" });
         }
 
         if (Number(payment.amount) !== purchase.amountPaid * 100) {
           console.error("[Webhook] Amount mismatch for order:", orderId);
+          if (webhookEventId) await storage.createWebhookEvent(webhookEventId, event.event, orderId, paymentId, "amount_mismatch");
           return res.status(200).json({ status: "amount mismatch" });
         }
 
@@ -375,7 +411,8 @@ export async function registerRoutes(
           paymentStatus: "captured",
         });
 
-        console.log("[Webhook] Purchase marked as paid:", purchase.id);
+        if (webhookEventId) await storage.createWebhookEvent(webhookEventId, event.event, orderId, paymentId, "processed");
+        console.log("[Webhook] Purchase marked as captured:", purchase.id);
 
         const customer = await storage.getCustomer(purchase.customerId);
         if (customer) {
@@ -418,6 +455,23 @@ export async function registerRoutes(
               .catch(err => console.error("[Webhook] Invoice PDF error:", err));
           }
         }
+      } else if (event.event === "payment.failed") {
+        const errorInfo = payment?.error_code ? payment : payment?.error || {};
+        await storage.createPaymentFailure({
+          razorpayOrderId: payment?.order_id || null,
+          razorpayPaymentId: payment?.id || null,
+          source: "webhook",
+          errorCode: errorInfo.code || errorInfo.error_code || null,
+          errorDescription: errorInfo.description || errorInfo.error_description || null,
+          errorSource: errorInfo.source || errorInfo.error_source || null,
+          errorStep: errorInfo.step || errorInfo.error_step || null,
+          errorReason: errorInfo.reason || errorInfo.error_reason || null,
+          errorMetadata: errorInfo.metadata || errorInfo.error_metadata || null,
+        });
+        if (webhookEventId) await storage.createWebhookEvent(webhookEventId, event.event, payment?.order_id || null, payment?.id || null, "failure_logged");
+        console.log("[Webhook] Payment failure recorded for order:", payment?.order_id);
+      } else {
+        if (webhookEventId) await storage.createWebhookEvent(webhookEventId, event.event, null, null, "ignored_event_type");
       }
 
       res.status(200).json({ status: "ok" });
@@ -1387,6 +1441,19 @@ export async function registerRoutes(
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to update config" });
+    }
+  });
+
+  app.get("/api/superadmin/payment-failures", requireSuperAdminAuth, async (req: Request, res: Response) => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const offset = (page - 1) * limit;
+      const result = await storage.getPaymentFailures(limit, offset);
+      res.json({ ...result, page, limit });
+    } catch (error) {
+      console.error("Failed to fetch payment failures:", error);
+      res.status(500).json({ error: "Failed to fetch payment failures" });
     }
   });
 

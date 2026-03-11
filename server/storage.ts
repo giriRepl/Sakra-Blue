@@ -40,6 +40,11 @@ import {
   type InsertSmsLog,
   appConfig,
   type AppConfig,
+  webhookEvents,
+  type WebhookEvent,
+  paymentFailures,
+  type InsertPaymentFailure,
+  type PaymentFailure,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, ne } from "drizzle-orm";
@@ -129,6 +134,14 @@ export interface IStorage {
   getConfig(key: string): Promise<string | undefined>;
   setConfig(key: string, value: string): Promise<void>;
   getAllConfig(): Promise<AppConfig[]>;
+
+  // Webhook Events
+  isWebhookEventProcessed(eventId: string): Promise<boolean>;
+  createWebhookEvent(eventId: string, eventType: string, razorpayOrderId: string | null, razorpayPaymentId: string | null, status: string): Promise<void>;
+
+  // Payment Failures
+  createPaymentFailure(failure: InsertPaymentFailure): Promise<PaymentFailure>;
+  getPaymentFailures(limit: number, offset: number): Promise<{ failures: PaymentFailure[]; total: number }>;
 
   // Stats
   getDashboardStats(): Promise<DashboardStats>;
@@ -577,6 +590,28 @@ export class DatabaseStorage implements IStorage {
 
   async getAllConfig(): Promise<AppConfig[]> {
     return db.select().from(appConfig);
+  }
+
+  // Webhook Events
+  async isWebhookEventProcessed(eventId: string): Promise<boolean> {
+    const [existing] = await db.select().from(webhookEvents).where(eq(webhookEvents.eventId, eventId));
+    return !!existing;
+  }
+
+  async createWebhookEvent(eventId: string, eventType: string, razorpayOrderId: string | null, razorpayPaymentId: string | null, status: string): Promise<void> {
+    await db.insert(webhookEvents).values({ eventId, eventType, razorpayOrderId, razorpayPaymentId, status });
+  }
+
+  // Payment Failures
+  async createPaymentFailure(failure: InsertPaymentFailure): Promise<PaymentFailure> {
+    const [created] = await db.insert(paymentFailures).values(failure).returning();
+    return created;
+  }
+
+  async getPaymentFailures(limit: number, offset: number): Promise<{ failures: PaymentFailure[]; total: number }> {
+    const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(paymentFailures);
+    const failures = await db.select().from(paymentFailures).orderBy(desc(paymentFailures.createdAt)).limit(limit).offset(offset);
+    return { failures, total: countResult.count };
   }
 
   // Stats
