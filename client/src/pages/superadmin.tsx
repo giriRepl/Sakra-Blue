@@ -1268,6 +1268,7 @@ function AllPurchasesPage() {
                   <TableHead data-testid="th-purchase-plan">Plan (People)</TableHead>
                   <TableHead data-testid="th-purchase-receipt">Razorpay Receipt</TableHead>
                   <TableHead data-testid="th-purchase-payment-id">Payment ID</TableHead>
+                  <TableHead data-testid="th-purchase-amount">Amount</TableHead>
                   <TableHead data-testid="th-purchase-status">Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1297,6 +1298,9 @@ function AllPurchasesPage() {
                     </TableCell>
                     <TableCell className="font-mono text-xs" data-testid={`cell-purchase-paymentid-${p.id}`}>
                       {p.razorpayPaymentId}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap" data-testid={`cell-purchase-amount-${p.id}`}>
+                      INR {p.amountPaid?.toLocaleString("en-IN")}
                     </TableCell>
                     <TableCell data-testid={`cell-purchase-status-${p.id}`}>
                       <Badge
