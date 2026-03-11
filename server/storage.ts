@@ -74,6 +74,8 @@ export interface IStorage {
   updatePurchasePayment(id: string, data: { razorpayPaymentId: string; paymentStatus: string }): Promise<Purchase | undefined>;
   updatePurchaseInvoice(id: string, data: { invoiceNumber: string; invoiceEmailSent: boolean }): Promise<Purchase | undefined>;
 
+  getAllPurchases(limit: number, offset: number, search?: string): Promise<{ purchases: any[]; total: number }>;
+
   // Redemptions
   createRedemption(redemption: InsertRedemption): Promise<Redemption>;
   getRedemptionsByPurchase(purchaseId: string): Promise<Redemption[]>;
@@ -282,6 +284,70 @@ export class DatabaseStorage implements IStorage {
     const customer = await this.getCustomerByMobile(mobile);
     if (!customer) return [];
     return this.getPurchasesByCustomer(customer.id);
+  }
+
+  async getAllPurchases(limit: number, offset: number, search?: string): Promise<{ purchases: any[]; total: number }> {
+    const conditions = [];
+    if (search) {
+      const searchLike = `%${search}%`;
+      conditions.push(
+        sql`(
+          ${purchases.razorpayReceipt} ILIKE ${searchLike} OR
+          ${purchases.razorpayPaymentId} ILIKE ${searchLike} OR
+          EXISTS (
+            SELECT 1 FROM ${customers} 
+            WHERE ${customers.id} = ${purchases.customerId} 
+            AND ${customers.mobile} ILIKE ${searchLike}
+          )
+        )`
+      );
+    }
+
+    const whereClause = conditions.length > 0 ? conditions[0] : undefined;
+
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(purchases)
+      .where(whereClause);
+
+    const purchaseList = await db
+      .select({
+        id: purchases.id,
+        purchaseDate: purchases.purchaseDate,
+        amountPaid: purchases.amountPaid,
+        razorpayReceipt: purchases.razorpayReceipt,
+        razorpayPaymentId: purchases.razorpayPaymentId,
+        paymentStatus: purchases.paymentStatus,
+        packageSnapshot: purchases.packageSnapshot,
+        customerId: purchases.customerId,
+      })
+      .from(purchases)
+      .where(whereClause)
+      .orderBy(desc(purchases.purchaseDate))
+      .limit(limit)
+      .offset(offset);
+
+    const result = [];
+    for (const p of purchaseList) {
+      const customer = await this.getCustomer(p.customerId);
+      const tiers = p.packageSnapshot?.pricingTiers || [];
+      const matchedTier = tiers.find((t: any) => t.price === p.amountPaid);
+      const numPeople = matchedTier ? (matchedTier.adultsCount + matchedTier.kidsCount) : null;
+      result.push({
+        id: p.id,
+        purchaseDate: p.purchaseDate,
+        mobile: customer?.mobile || "Unknown",
+        customerName: customer?.name || "-",
+        packageTitle: p.packageSnapshot?.title || "Unknown",
+        numPeople,
+        razorpayReceipt: p.razorpayReceipt || "-",
+        razorpayPaymentId: p.razorpayPaymentId || "-",
+        paymentStatus: p.paymentStatus,
+        amountPaid: p.amountPaid,
+      });
+    }
+
+    return { purchases: result, total: countResult.count };
   }
 
   async getPurchase(id: string): Promise<PurchaseWithDetails | undefined> {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
-import { Lock, Loader2, ArrowLeft, MessageSquare, Send, Phone, FileText, Plus, Pencil, Trash2, X, Save, AlertTriangle, ClipboardList, ChevronLeft, ChevronRight, Mail, Settings } from "lucide-react";
+import { Lock, Loader2, ArrowLeft, MessageSquare, Send, Phone, FileText, Plus, Pencil, Trash2, X, Save, AlertTriangle, ClipboardList, ChevronLeft, ChevronRight, Mail, Settings, ShoppingCart, Search } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -1171,8 +1171,181 @@ function ConfigurationPage() {
   );
 }
 
+function AllPurchasesPage() {
+  const [page, setPage] = useState(1);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const pageSize = 20;
+
+  const { data, isLoading } = useQuery<{ purchases: any[]; total: number; page: number; limit: number }>({
+    queryKey: ["/api/superadmin/purchases", page, search],
+    queryFn: async () => {
+      const params = new URLSearchParams({ page: String(page), limit: String(pageSize) });
+      if (search) params.set("search", search);
+      const res = await superAdminFetch(`/api/superadmin/purchases?${params}`);
+      if (!res.ok) throw new Error("Failed to fetch purchases");
+      return res.json();
+    },
+  });
+
+  const purchasesList = data?.purchases ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.ceil(total / pageSize);
+
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  };
+
+  const formatTime = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
+  };
+
+  const handleSearch = () => {
+    setSearch(searchInput.trim());
+    setPage(1);
+  };
+
+  const handleClearSearch = () => {
+    setSearchInput("");
+    setSearch("");
+    setPage(1);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20" data-testid="loading-purchases">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div data-testid="page-all-purchases">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShoppingCart className="h-5 w-5" />
+            All Purchases
+          </CardTitle>
+          <CardDescription>
+            {total === 0
+              ? "No purchases recorded yet."
+              : `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} of ${total} purchase${total === 1 ? "" : "s"}`}
+          </CardDescription>
+          <div className="flex items-center gap-2 pt-2">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by mobile, receipt, or payment ID..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                className="pl-9"
+                data-testid="input-purchase-search"
+              />
+            </div>
+            <Button onClick={handleSearch} size="sm" data-testid="button-purchase-search">
+              Search
+            </Button>
+            {search && (
+              <Button onClick={handleClearSearch} variant="ghost" size="sm" data-testid="button-purchase-clear-search">
+                <X className="h-4 w-4 mr-1" /> Clear
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        {purchasesList.length > 0 && (
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead data-testid="th-purchase-date">Date</TableHead>
+                  <TableHead data-testid="th-purchase-time">Time</TableHead>
+                  <TableHead data-testid="th-purchase-mobile">Mobile</TableHead>
+                  <TableHead data-testid="th-purchase-name">Name</TableHead>
+                  <TableHead data-testid="th-purchase-plan">Plan (People)</TableHead>
+                  <TableHead data-testid="th-purchase-receipt">Razorpay Receipt</TableHead>
+                  <TableHead data-testid="th-purchase-payment-id">Payment ID</TableHead>
+                  <TableHead data-testid="th-purchase-status">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {purchasesList.map((p: any) => (
+                  <TableRow key={p.id} data-testid={`row-purchase-${p.id}`}>
+                    <TableCell className="whitespace-nowrap text-muted-foreground" data-testid={`cell-purchase-date-${p.id}`}>
+                      {formatDate(p.purchaseDate)}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground" data-testid={`cell-purchase-time-${p.id}`}>
+                      {formatTime(p.purchaseDate)}
+                    </TableCell>
+                    <TableCell data-testid={`cell-purchase-mobile-${p.id}`}>
+                      {p.mobile}
+                    </TableCell>
+                    <TableCell data-testid={`cell-purchase-name-${p.id}`}>
+                      {p.customerName}
+                    </TableCell>
+                    <TableCell data-testid={`cell-purchase-plan-${p.id}`}>
+                      <span className="font-medium">{p.packageTitle}</span>
+                      {p.numPeople !== null && (
+                        <span className="text-muted-foreground text-xs ml-1">({p.numPeople})</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs" data-testid={`cell-purchase-receipt-${p.id}`}>
+                      {p.razorpayReceipt}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs" data-testid={`cell-purchase-paymentid-${p.id}`}>
+                      {p.razorpayPaymentId}
+                    </TableCell>
+                    <TableCell data-testid={`cell-purchase-status-${p.id}`}>
+                      <Badge
+                        variant={p.paymentStatus === "captured" ? "default" : p.paymentStatus === "pending" ? "secondary" : "destructive"}
+                        className="text-xs"
+                      >
+                        {p.paymentStatus}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between gap-4 pt-4 border-t mt-4">
+                <span className="text-sm text-muted-foreground">
+                  Page {page} of {totalPages}
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                    data-testid="button-purchases-prev"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page >= totalPages}
+                    data-testid="button-purchases-next"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 function SuperAdminPanel({ onLogout }: { onLogout: () => void }) {
-  const [activeTab, setActiveTab] = useState<"sms" | "templates" | "sms-logs" | "failure-logs" | "email" | "config">("sms");
+  const [activeTab, setActiveTab] = useState<"sms" | "templates" | "sms-logs" | "failure-logs" | "email" | "config" | "purchases">("sms");
 
   const style = {
     "--sidebar-width": "14rem",
@@ -1186,6 +1359,7 @@ function SuperAdminPanel({ onLogout }: { onLogout: () => void }) {
     "failure-logs": "Failure Logs",
     email: "Email",
     config: "Configuration",
+    purchases: "All Purchases",
   };
   const pageTitle = pageTitles[activeTab] || "Super Admin";
 
@@ -1235,6 +1409,12 @@ function SuperAdminPanel({ onLogout }: { onLogout: () => void }) {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
+                <SidebarMenuButton isActive={activeTab === "purchases"} onClick={() => setActiveTab("purchases")} data-testid="nav-purchases">
+                  <ShoppingCart className="h-4 w-4" />
+                  <span>All Purchases</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
                 <SidebarMenuButton isActive={activeTab === "config"} onClick={() => setActiveTab("config")} data-testid="nav-config">
                   <Settings className="h-4 w-4" />
                   <span>Configuration</span>
@@ -1269,6 +1449,7 @@ function SuperAdminPanel({ onLogout }: { onLogout: () => void }) {
               {activeTab === "sms-logs" && <SmsLogsPage />}
               {activeTab === "failure-logs" && <FailureLogsPage />}
               {activeTab === "email" && <EmailTestPage />}
+              {activeTab === "purchases" && <AllPurchasesPage />}
               {activeTab === "config" && <ConfigurationPage />}
             </div>
           </main>

@@ -1390,6 +1390,21 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/superadmin/purchases", requireSuperAdminAuth, async (req: Request, res: Response) => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const search = (req.query.search as string || "").trim();
+      const offset = (page - 1) * limit;
+
+      const result = await storage.getAllPurchases(limit, offset, search);
+      res.json({ ...result, page, limit });
+    } catch (error) {
+      console.error("Failed to fetch purchases:", error);
+      res.status(500).json({ error: "Failed to fetch purchases" });
+    }
+  });
+
   app.get("/api/config/edit-after-publish", async (_req: Request, res: Response) => {
     try {
       const value = await storage.getConfig("edit_after_publish");
