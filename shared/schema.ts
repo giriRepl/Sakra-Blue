@@ -110,6 +110,7 @@ export const purchases = pgTable("purchases", {
   amountPaid: integer("amount_paid").notNull(),
   razorpayOrderId: text("razorpay_order_id"),
   razorpayPaymentId: text("razorpay_payment_id"),
+  razorpayReceipt: text("razorpay_receipt"),
   paymentStatus: text("payment_status").notNull().default("pending"),
   invoiceNumber: text("invoice_number"),
   invoiceEmailSent: boolean("invoice_email_sent").default(false),

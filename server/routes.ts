@@ -195,10 +195,11 @@ export async function registerRoutes(
       }
       const selectedTier = tiers[tierIdx];
 
+      const receipt = `NAPS_${Date.now()}`;
       const order = await razorpay.orders.create({
         amount: selectedTier.price * 100,
         currency: "INR",
-        receipt: `NAPS_${Date.now()}`,
+        receipt,
       });
 
       const expiryDate = addMonths(new Date(), pkg.validityMonths);
@@ -210,6 +211,7 @@ export async function registerRoutes(
         expiryDate,
         amountPaid: selectedTier.price,
         razorpayOrderId: order.id,
+        razorpayReceipt: receipt,
         paymentStatus: "pending",
       });
 
