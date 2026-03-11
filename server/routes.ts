@@ -308,6 +308,10 @@ export async function registerRoutes(
           await storage.updatePurchaseInvoice(updatedPurchase.id, { invoiceNumber: invoiceNum, invoiceEmailSent: false });
         }
 
+        razorpay.orders.edit(razorpay_order_id, {
+          notes: { invoiceNumber: invoiceNum },
+        }).catch(err => console.error("[Razorpay] Failed to update order notes:", err));
+
         if (customer.email) {
           const invoiceData = {
             invoiceNumber: invoiceNum,
@@ -430,6 +434,10 @@ export async function registerRoutes(
           if (updatedPurchase) {
             await storage.updatePurchaseInvoice(updatedPurchase.id, { invoiceNumber: invoiceNum, invoiceEmailSent: false });
           }
+
+          razorpay.orders.edit(orderId, {
+            notes: { invoiceNumber: invoiceNum },
+          }).catch(err => console.error("[Webhook] Failed to update Razorpay order notes:", err));
 
           if (customer.email) {
             const invoiceData = {
