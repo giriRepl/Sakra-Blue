@@ -1,0 +1,138 @@
+When integrating Razorpay, the biggest wins come from treating payments as a distributed system problem, not just a checkout button problem.
+The core best practices are:
+1. Always create the order on your server, never trust client-side amounts Razorpay’s web integration expects you to create an order_id on the server and pass that to Checkout. Razorpay explicitly notes that the order_id ties the payment to your request and helps prevent tampering; payments attempted without an order_id cannot be captured and are auto-refunded. (Razorpay)
+2. Treat the client callback as advisory; use server verification as the source of truth After checkout returns success, verify the payment signature on the server before marking an order paid. In practice, your app should only move an order into a “paid/fulfillable” state after server-side verification and/or webhook confirmation, not just because the browser says payment succeeded. Razorpay’s standard integration flow includes server-side verification after the client step. (Razorpay)
+3. Use webhooks for final state changes Do not rely only on frontend redirects or polling. Razorpay recommends webhooks to track transaction states, and their docs explicitly call out payments, orders, settlements, disputes, and other events as webhook-driven use cases. This is especially important because the customer may close the tab, lose connectivity, or complete an async payment flow after your UI session ends. (Razorpay)
+4. Build for idempotency everywhere Webhook delivery can be retried, and webhook events may not arrive in the order you expect. Razorpay’s webhook docs explicitly tell you to make your processing idempotent and to avoid assuming event order. Concretely: store processed webhook event IDs, make order updates conditional, and ensure a retry does not create duplicate invoices, emails, credits, or fulfillment. (Razorpay)
+5. Verify webhook signatures and keep webhook secrets separate Razorpay says to validate webhook signatures and notes that the webhook secret does not need to be the same as your API key secret. That separation is a good security practice: API keys for server-to-Razorpay calls, webhook secret for inbound authenticity checks. (Razorpay)
+From an engineering perspective, here is a solid production checklist.
+Coding and architecture
+Use a payment state machine in your database. A simple model is: created -> checkout_initiated -> authorized -> captured -> failed/refunded. Even if Razorpay abstracts parts of this, your internal system should maintain explicit states so retries and support debugging are safe.
+Keep three separate records:
+* your internal order / cart / invoice
+* Razorpay order_id
+* Razorpay payment_id
+Do not overload one ID to mean all three. This makes reconciliation, refunds, support tickets, and replay handling much easier.
+Never compute payable amount on the client. The server should derive amount from SKU/plan/cart data and create the Razorpay order from that canonical value.
+Use minor currency units consistently. Store and send amounts in the smallest currency unit expected by the API, and normalize formatting at the UI edge only. The API docs describe JSON REST APIs and resource-driven requests; consistency here avoids off-by-100 bugs. (Razorpay)
+Do not embed business decisions in the checkout success handler. The handler can show “payment received, confirming status,” but fulfillment, subscription activation, wallet credit, or shipment release should happen on the server.
+Error-proofing
+Assume duplicate requests will happen. Users double-click, mobile networks retry, browsers refresh, reverse proxies replay, and webhooks retry. Protect:
+* order creation
+* payment confirmation
+* webhook processing
+* fulfillment side effects
+A good pattern is to use a unique internal payment attempt key and enforce uniqueness in the DB.
+Assume out-of-order events will happen. Razorpay explicitly warns webhook events may not arrive in order. Your transition logic should accept valid late-arriving events without corrupting state. Example: if you already marked a payment captured, a later “authorized” style event should be ignored or logged, not downgrade state. (Razorpay)
+Handle partial failures explicitly. Examples:
+* Razorpay order created, DB write failed
+* payment authorized, webhook delayed
+* webhook processed, email service failed
+* refund succeeded, ERP sync failed
+Use an outbox/job queue for side effects like emails, inventory release, subscription activation, and invoice generation.
+Fail closed on verification errors. If signature verification fails, do not mark paid. Log it as security-relevant and surface it to operations.
+Logging
+For payments, structured logs are far better than free-form strings.
+Log these fields on every payment-related event:
+* internal order ID
+* payment attempt ID
+* Razorpay order_id
+* Razorpay payment_id
+* webhook event type
+* webhook event/entity ID
+* API endpoint called
+* HTTP status from Razorpay
+* app environment
+* user/account ID if applicable
+* idempotency/replay decision
+* latency
+* final state transition
+Mask secrets and sensitive user data. Never log API secrets, webhook secrets, full card data, OTPs, or raw personally sensitive fields. Keep logs support-friendly but compliance-safe.
+Use correlation IDs. Generate one correlation ID per checkout attempt and propagate it through: client -> backend -> Razorpay order creation -> webhook handler -> fulfillment jobs
+That makes “why did this payment succeed but the order did not ship?” much easier to answer.
+Analytics and monitoring
+Track the funnel, not just success/failure:
+* checkout opened
+* payment method selected
+* payment submitted
+* Razorpay success callback received
+* signature verified
+* webhook received
+* order marked paid
+* fulfillment completed
+This helps you distinguish UX drop-off from gateway issues from backend bugs.
+Track failure codes and reasons systematically. Razorpay documents structured API errors with fields like code, description, source, step, reason, and metadata. Persist these in an internal normalized table for reporting and alerting. That gives you insights like:
+* auth/configuration failures
+* validation bugs
+* bank/issuer failures
+* webhook signature failures
+* timeouts/retries
+* capture issues (Razorpay)
+Set alerts for:
+* spike in checkout opens with low payment completion
+* spike in signature verification failures
+* webhook delivery failures / deactivations
+* high retry rate on webhook endpoint
+* growing gap between “payment successful” and “order marked paid”
+Razorpay allows alert emails for webhook failures/deactivation, which is worth enabling, but you should also monitor from your own side. (Razorpay)
+Debugging and support workflows
+Save raw webhook payloads safely. Keep the original payload and headers for a limited retention period so you can replay/debug signature and parsing issues. Store them encrypted if needed.
+Add an internal payment timeline view. For each payment attempt, show:
+* order created time
+* checkout callback time
+* verification result
+* webhook receipt times
+* Razorpay IDs
+* retries
+* state transitions
+* refund actions
+This is one of the highest-ROI tools for ops and engineering.
+Separate “customer-visible status” from “gateway raw status.” A user-friendly status like “Payment received, confirmation pending” is better than exposing transient or confusing low-level gateway states.
+Build a replay-safe admin tool for webhook reprocessing. Sometimes bugs are in your consumer, not the gateway. Being able to reprocess stored events safely is invaluable.
+Security
+Keep API keys only on the server. The client should only get the public key needed for checkout; secret keys must never be exposed in frontend code or mobile app bundles.
+Use different credentials for test and live, and enforce environment isolation. Razorpay docs distinguish Test Mode and Live Mode keys; accidental mixing is a common go-live bug. (Razorpay)
+Restrict callback and webhook endpoints. Use HTTPS, verify signatures, rate-limit where appropriate, and keep the endpoint surface minimal.
+Do not use the same secret everywhere. Separate:
+* Razorpay API secret
+* webhook secret
+* your app session/auth secrets
+Go-live and QA
+Test these paths before launch:
+* happy path payment success
+* payment failure
+* user closes tab after payment
+* webhook delayed
+* duplicate webhook
+* out-of-order webhook
+* invalid signature
+* wrong amount mismatch
+* DB failure after payment success
+* refund flow
+* test/live credential misconfiguration
+Razorpay provides webhook validation/testing guidance and a go-live checklist for integrations, which is worth using as your baseline. (Razorpay)
+A practical “golden flow”
+A robust production flow usually looks like this:
+1. User clicks pay.
+2. Your backend calculates final amount and creates a Razorpay order.
+3. Client opens Razorpay Checkout using that order_id.
+4. Client receives success callback.
+5. Backend verifies signature.
+6. Backend marks payment as verification_passed, not yet blindly fulfilled if your design waits for webhook.
+7. Webhook arrives.
+8. Webhook signature is verified.
+9. Idempotent processor updates final payment state.
+10. Fulfillment jobs run exactly once.
+11. Logs, metrics, and user status are updated.
+Common mistakes to avoid
+* trusting the frontend success callback alone
+* creating orders from client-supplied amount
+* not storing Razorpay IDs
+* processing webhooks without signature verification
+* assuming webhook order
+* not making webhook handling idempotent
+* triggering shipment/subscription twice on retries
+* logging secrets
+* no reconciliation dashboard
+* mixing test and live credentials
+A very good default mindset is: payments are eventually consistent, retry-heavy, and security-sensitive. If your integration is idempotent, server-verified, webhook-driven, and well-instrumented, most real-world issues become manageable.
