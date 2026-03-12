@@ -1471,7 +1471,7 @@ function AllPurchasesPage() {
                       </Badge>
                     </TableCell>
                     <TableCell data-testid={`cell-purchase-action-${p.id}`}>
-                      {p.paymentStatus === "captured" && p.redemptionCount === 0 && (
+                      {(p.paymentStatus === "captured" || p.paymentStatus === "paid") && p.redemptionCount === 0 && (
                         <Button
                           variant="outline"
                           size="sm"

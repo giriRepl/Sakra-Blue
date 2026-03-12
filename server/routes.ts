@@ -1490,8 +1490,8 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Purchase not found" });
       }
 
-      if (purchase.paymentStatus !== "captured") {
-        return res.status(400).json({ error: "Only captured payments can be refunded" });
+      if (!["captured", "paid"].includes(purchase.paymentStatus)) {
+        return res.status(400).json({ error: "Only successful payments can be refunded" });
       }
 
       if (purchase.redemptions && purchase.redemptions.length > 0) {
@@ -1500,6 +1500,18 @@ export async function registerRoutes(
 
       if (!purchase.razorpayPaymentId) {
         return res.status(400).json({ error: "No Razorpay payment ID found for this purchase" });
+      }
+
+      // Fetch actual payment status from Razorpay
+      const rzpPayment = await razorpay.payments.fetch(purchase.razorpayPaymentId);
+      const rzpStatus = (rzpPayment as any).status;
+
+      // If authorized but not yet captured, capture it first so it can be refunded
+      if (rzpStatus === "authorized") {
+        await razorpay.payments.capture(purchase.razorpayPaymentId, purchase.amountPaid * 100, "INR");
+        console.log(`[Cancel-Refund] Captured authorized payment ${purchase.razorpayPaymentId} before refund`);
+      } else if (rzpStatus !== "captured") {
+        return res.status(400).json({ error: `Payment cannot be refunded (Razorpay status: ${rzpStatus})` });
       }
 
       const refund = await razorpay.payments.refund(purchase.razorpayPaymentId, {
