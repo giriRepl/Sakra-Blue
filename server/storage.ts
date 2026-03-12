@@ -80,6 +80,7 @@ export interface IStorage {
   updatePurchaseInvoice(id: string, data: { invoiceNumber: string; invoiceEmailSent: boolean }): Promise<Purchase | undefined>;
 
   getAllPurchases(limit: number, offset: number, search?: string): Promise<{ purchases: any[]; total: number }>;
+  cancelPurchaseWithRefund(id: string, refundId: string): Promise<Purchase | undefined>;
 
   // Redemptions
   createRedemption(redemption: InsertRedemption): Promise<Redemption>;
@@ -341,6 +342,8 @@ export class DatabaseStorage implements IStorage {
         paymentStatus: purchases.paymentStatus,
         packageSnapshot: purchases.packageSnapshot,
         customerId: purchases.customerId,
+        cancelledAt: purchases.cancelledAt,
+        razorpayRefundId: purchases.razorpayRefundId,
       })
       .from(purchases)
       .where(whereClause)
@@ -354,6 +357,7 @@ export class DatabaseStorage implements IStorage {
       const tiers = p.packageSnapshot?.pricingTiers || [];
       const matchedTier = tiers.find((t: any) => t.price === p.amountPaid);
       const numPeople = matchedTier ? (matchedTier.adultsCount + matchedTier.kidsCount) : null;
+      const purchaseRedemptions = await this.getRedemptionsByPurchase(p.id);
       result.push({
         id: p.id,
         purchaseDate: p.purchaseDate,
@@ -363,12 +367,25 @@ export class DatabaseStorage implements IStorage {
         numPeople,
         razorpayReceipt: p.razorpayReceipt || "-",
         razorpayPaymentId: p.razorpayPaymentId || "-",
+        razorpayPaymentIdRaw: p.razorpayPaymentId,
         paymentStatus: p.paymentStatus,
         amountPaid: p.amountPaid,
+        redemptionCount: purchaseRedemptions.length,
+        cancelledAt: p.cancelledAt,
+        razorpayRefundId: p.razorpayRefundId,
       });
     }
 
     return { purchases: result, total: countResult.count };
+  }
+
+  async cancelPurchaseWithRefund(id: string, refundId: string): Promise<Purchase | undefined> {
+    const [updated] = await db
+      .update(purchases)
+      .set({ paymentStatus: "cancelled", cancelledAt: new Date(), razorpayRefundId: refundId })
+      .where(eq(purchases.id, id))
+      .returning();
+    return updated || undefined;
   }
 
   async getPurchase(id: string): Promise<PurchaseWithDetails | undefined> {

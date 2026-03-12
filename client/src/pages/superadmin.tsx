@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
-import { Lock, Loader2, ArrowLeft, MessageSquare, Send, Phone, FileText, Plus, Pencil, Trash2, X, Save, AlertTriangle, ClipboardList, ChevronLeft, ChevronRight, Mail, Settings, ShoppingCart, Search, CreditCard } from "lucide-react";
+import { Lock, Loader2, ArrowLeft, MessageSquare, Send, Phone, FileText, Plus, Pencil, Trash2, X, Save, AlertTriangle, ClipboardList, ChevronLeft, ChevronRight, Mail, Settings, ShoppingCart, Search, CreditCard, Ban } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -1305,9 +1305,11 @@ function PaymentFailuresPage() {
 }
 
 function AllPurchasesPage() {
+  const { toast } = useToast();
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
   const pageSize = 20;
 
   const { data, isLoading } = useQuery<{ purchases: any[]; total: number; page: number; limit: number }>({
@@ -1321,9 +1323,33 @@ function AllPurchasesPage() {
     },
   });
 
+  const cancelRefundMutation = useMutation({
+    mutationFn: async (purchaseId: string) => {
+      const res = await superAdminFetch(`/api/superadmin/purchases/${purchaseId}/cancel-refund`, {
+        method: "POST",
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Failed to cancel and refund");
+      return body;
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Plan Cancelled & Refund Initiated",
+        description: `Refund of INR ${data.amountRupees?.toLocaleString("en-IN")} initiated. Refund ID: ${data.refundId}`,
+      });
+      setConfirmCancelId(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/superadmin/purchases"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      setConfirmCancelId(null);
+    },
+  });
+
   const purchasesList = data?.purchases ?? [];
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / pageSize);
+  const confirmPurchase = confirmCancelId ? purchasesList.find((p) => p.id === confirmCancelId) : null;
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -1403,6 +1429,7 @@ function AllPurchasesPage() {
                   <TableHead data-testid="th-purchase-payment-id">Payment ID</TableHead>
                   <TableHead data-testid="th-purchase-amount">Amount</TableHead>
                   <TableHead data-testid="th-purchase-status">Status</TableHead>
+                  <TableHead data-testid="th-purchase-action">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1437,11 +1464,30 @@ function AllPurchasesPage() {
                     </TableCell>
                     <TableCell data-testid={`cell-purchase-status-${p.id}`}>
                       <Badge
-                        variant={p.paymentStatus === "captured" ? "default" : p.paymentStatus === "pending" ? "secondary" : "destructive"}
+                        variant={p.paymentStatus === "captured" ? "default" : p.paymentStatus === "cancelled" ? "destructive" : p.paymentStatus === "pending" ? "secondary" : "destructive"}
                         className="text-xs"
                       >
                         {p.paymentStatus}
                       </Badge>
+                    </TableCell>
+                    <TableCell data-testid={`cell-purchase-action-${p.id}`}>
+                      {p.paymentStatus === "captured" && p.redemptionCount === 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-destructive border-destructive hover:bg-destructive hover:text-white text-xs"
+                          onClick={() => setConfirmCancelId(p.id)}
+                          data-testid={`button-cancel-refund-${p.id}`}
+                        >
+                          <Ban className="h-3 w-3 mr-1" />
+                          Cancel & Refund
+                        </Button>
+                      )}
+                      {p.paymentStatus === "cancelled" && p.razorpayRefundId && (
+                        <span className="text-xs text-muted-foreground font-mono">
+                          Refund: {p.razorpayRefundId}
+                        </span>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -1477,6 +1523,41 @@ function AllPurchasesPage() {
           </CardContent>
         )}
       </Card>
+
+      <Dialog open={!!confirmCancelId} onOpenChange={(open) => { if (!open) setConfirmCancelId(null); }}>
+        <DialogContent data-testid="dialog-cancel-refund">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Ban className="h-5 w-5" />
+              Cancel Plan & Refund
+            </DialogTitle>
+            <DialogDescription>
+              This will cancel the plan and initiate a full refund. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {confirmPurchase && (
+            <div className="rounded-lg border p-4 space-y-1 text-sm bg-muted/40">
+              <div><span className="text-muted-foreground">Customer:</span> <span className="font-medium">{confirmPurchase.customerName}</span> ({confirmPurchase.mobile})</div>
+              <div><span className="text-muted-foreground">Plan:</span> <span className="font-medium">{confirmPurchase.packageTitle}</span></div>
+              <div><span className="text-muted-foreground">Amount to refund:</span> <span className="font-semibold text-destructive">INR {confirmPurchase.amountPaid?.toLocaleString("en-IN")}</span></div>
+              <div><span className="text-muted-foreground">Payment ID:</span> <span className="font-mono text-xs">{confirmPurchase.razorpayPaymentId}</span></div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmCancelId(null)} disabled={cancelRefundMutation.isPending} data-testid="button-cancel-dialog-close">
+              Go Back
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => confirmCancelId && cancelRefundMutation.mutate(confirmCancelId)}
+              disabled={cancelRefundMutation.isPending}
+              data-testid="button-confirm-cancel-refund"
+            >
+              {cancelRefundMutation.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Processing…</> : "Confirm Cancel & Refund"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

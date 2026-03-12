@@ -1481,6 +1481,43 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/superadmin/purchases/:id/cancel-refund", requireSuperAdminAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      const purchase = await storage.getPurchase(id);
+      if (!purchase) {
+        return res.status(404).json({ error: "Purchase not found" });
+      }
+
+      if (purchase.paymentStatus !== "captured") {
+        return res.status(400).json({ error: "Only captured payments can be refunded" });
+      }
+
+      if (purchase.redemptions && purchase.redemptions.length > 0) {
+        return res.status(400).json({ error: "Cannot cancel a plan after services have been redeemed" });
+      }
+
+      if (!purchase.razorpayPaymentId) {
+        return res.status(400).json({ error: "No Razorpay payment ID found for this purchase" });
+      }
+
+      const refund = await razorpay.payments.refund(purchase.razorpayPaymentId, {
+        amount: purchase.amountPaid * 100, // convert rupees to paise
+        speed: "normal",
+        notes: { reason: "Plan cancelled by admin", purchaseId: id },
+      });
+
+      await storage.cancelPurchaseWithRefund(id, refund.id);
+
+      res.json({ success: true, refundId: refund.id, amountRupees: purchase.amountPaid });
+    } catch (error: any) {
+      console.error("[Cancel-Refund] Error:", error);
+      const message = error?.error?.description || error?.message || "Failed to process refund";
+      res.status(500).json({ error: message });
+    }
+  });
+
   app.get("/api/config/edit-after-publish", async (_req: Request, res: Response) => {
     try {
       const value = await storage.getConfig("edit_after_publish");
