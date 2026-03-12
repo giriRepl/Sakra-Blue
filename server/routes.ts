@@ -586,6 +586,7 @@ export async function registerRoutes(
 
       res.json(updated);
     } catch (error) {
+      console.error("[Profile Update] Error:", error);
       res.status(500).json({ error: "Failed to update profile" });
     }
   });

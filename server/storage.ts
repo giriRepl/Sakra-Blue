@@ -255,7 +255,8 @@ export class DatabaseStorage implements IStorage {
     const updates: Record<string, any> = {};
     if (profile.name !== undefined && profile.name !== "") updates.name = profile.name;
     if (profile.email !== undefined && profile.email !== "") updates.email = profile.email;
-    if (profile.age !== undefined && profile.age !== null) updates.age = profile.age;
+    const ageNum = Number(profile.age);
+    if (profile.age !== undefined && profile.age !== null && (profile.age as any) !== "" && !isNaN(ageNum) && ageNum > 0) updates.age = ageNum;
     if (profile.location !== undefined && profile.location !== "") updates.location = profile.location;
     if (profile.gender !== undefined && profile.gender !== "") updates.gender = profile.gender;
     if (Object.keys(updates).length === 0) return undefined;
