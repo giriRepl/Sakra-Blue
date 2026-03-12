@@ -68,7 +68,7 @@ export interface IStorage {
   getCustomer(id: string): Promise<Customer | undefined>;
   getCustomerByMobile(mobile: string): Promise<Customer | undefined>;
   createCustomer(customer: InsertCustomer): Promise<Customer>;
-  updateCustomerProfile(id: string, profile: { name: string; email: string; age: number; location: string; gender: string }): Promise<Customer | undefined>;
+  updateCustomerProfile(id: string, profile: { name?: string; email?: string; age?: number; location?: string; gender?: string }): Promise<Customer | undefined>;
 
   // Purchases
   createPurchase(purchase: InsertPurchase): Promise<Purchase>;
@@ -251,10 +251,17 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async updateCustomerProfile(id: string, profile: { name: string; email: string; age: number; location: string; gender: string }): Promise<Customer | undefined> {
+  async updateCustomerProfile(id: string, profile: { name?: string; email?: string; age?: number; location?: string; gender?: string }): Promise<Customer | undefined> {
+    const updates: Record<string, any> = {};
+    if (profile.name !== undefined && profile.name !== "") updates.name = profile.name;
+    if (profile.email !== undefined && profile.email !== "") updates.email = profile.email;
+    if (profile.age !== undefined && profile.age !== null) updates.age = profile.age;
+    if (profile.location !== undefined && profile.location !== "") updates.location = profile.location;
+    if (profile.gender !== undefined && profile.gender !== "") updates.gender = profile.gender;
+    if (Object.keys(updates).length === 0) return undefined;
     const [updated] = await db
       .update(customers)
-      .set(profile)
+      .set(updates)
       .where(eq(customers.id, id))
       .returning();
     return updated || undefined;

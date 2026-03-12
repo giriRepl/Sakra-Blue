@@ -535,8 +535,8 @@ export async function registerRoutes(
       const { name, email, age, location, gender, mobile } = req.body;
       const customerId = req.headers["x-customer-id"] as string;
       
-      if (!name || !age || !location || !gender) {
-        return res.status(400).json({ error: "Name, age, location, and gender are required" });
+      if (!name && !email && !age && !location && !gender) {
+        return res.status(400).json({ error: "At least one field must be provided to update" });
       }
 
       let customer;
@@ -552,7 +552,7 @@ export async function registerRoutes(
 
       const updated = await storage.updateCustomerProfile(customer.id, { name, email, age, location, gender });
       if (!updated) {
-        return res.status(404).json({ error: "Customer not found" });
+        return res.status(400).json({ error: "No valid fields provided to update" });
       }
 
       if (email) {

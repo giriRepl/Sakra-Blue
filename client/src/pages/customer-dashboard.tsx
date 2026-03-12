@@ -24,10 +24,11 @@ import type { PurchaseWithDetails, Redemption, Service, Member } from "@shared/s
 import { format, differenceInDays, isPast } from "date-fns";
 
 const profileFormSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  age: z.coerce.number().min(1, "Age must be positive"),
-  location: z.string().min(1, "Location is required"),
-  gender: z.enum(["male", "female", "other"], { required_error: "Please select your gender" }),
+  name: z.string().optional(),
+  email: z.string().email("Enter a valid email").optional().or(z.literal("")),
+  age: z.coerce.number().min(1).optional().or(z.literal("")),
+  location: z.string().optional(),
+  gender: z.enum(["male", "female", "other"]).optional(),
 });
 
 function formatPrice(price: number) {
@@ -262,7 +263,8 @@ export default function CustomerDashboardPage() {
   const handleEditProfile = () => {
     profileForm.reset({
       name: customer?.name || "",
-      age: customer?.age || 30,
+      email: customer?.email || "",
+      age: customer?.age || ("" as any),
       location: customer?.location || "",
       gender: (customer?.gender as "male" | "female" | "other") || undefined,
     });
@@ -397,6 +399,19 @@ export default function CustomerDashboardPage() {
                       <FormLabel>Name</FormLabel>
                       <FormControl>
                         <Input {...field} placeholder="Your full name" data-testid="input-edit-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={profileForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input {...field} type="email" placeholder="your@email.com" data-testid="input-edit-email" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
