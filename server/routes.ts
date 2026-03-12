@@ -535,8 +535,8 @@ export async function registerRoutes(
       const { name, email, age, location, gender, mobile } = req.body;
       const customerId = req.headers["x-customer-id"] as string;
       
-      if (!name || !email || !age || !location || !gender) {
-        return res.status(400).json({ error: "Name, email, age, location, and gender are required" });
+      if (!name || !age || !location || !gender) {
+        return res.status(400).json({ error: "Name, age, location, and gender are required" });
       }
 
       let customer;

@@ -242,10 +242,18 @@ export default function CustomerDashboardPage() {
         refreshCustomer();
       }
     },
-    onError: () => {
+    onError: (error: Error) => {
+      let description = "Failed to update profile. Please try again.";
+      try {
+        const match = error.message.match(/\d+: (.+)/);
+        if (match) {
+          const parsed = JSON.parse(match[1]);
+          if (parsed.error) description = parsed.error;
+        }
+      } catch {}
       toast({
         title: "Error",
-        description: "Failed to update profile. Please try again.",
+        description,
         variant: "destructive",
       });
     },
