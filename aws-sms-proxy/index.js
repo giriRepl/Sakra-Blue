@@ -81,8 +81,6 @@ const server = http.createServer(async (req, res) => {
 
       const result = await sendToKarix(params);
 
-      console.log(`Karix response: ${JSON.stringify(result)}`);
-
       if (result.statusCode === 200) {
         res.writeHead(200);
         res.end(JSON.stringify({ success: true, message: "SMS sent successfully", karixResponse: result.body }));
