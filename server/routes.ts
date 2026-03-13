@@ -614,15 +614,19 @@ export async function registerRoutes(
     try {
       const { email, password } = req.body;
 
-      // Check for static password for testing
-      if (password !== "saKra123") {
+      const adminPassword = process.env.ADMIN_PASSWORD;
+      if (!adminPassword) {
+        return res.status(500).json({ error: "Server misconfiguration: ADMIN_PASSWORD not set" });
+      }
+
+      if (password !== adminPassword) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
       // Get or create admin
       let admin = await storage.getAdminByEmail(email);
       if (!admin) {
-        admin = await storage.createAdmin({ email, password: "saKra123" });
+        admin = await storage.createAdmin({ email, password: adminPassword });
       }
 
       const token = generateToken();
