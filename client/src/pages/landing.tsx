@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/accordion";
 import { LoadingSpinner } from "@/components/loading-spinner";
 
+import { useState } from "react";
 import { useCustomerAuth } from "@/lib/auth";
 import { getLowestPrice, type Package } from "@shared/schema";
 import sakraIkocLogo from "@assets/Sakra_IKOC_Logo_(3)_1772012091670.png";
@@ -50,6 +51,7 @@ function formatPrice(price: number) {
 export default function LandingPage() {
   const [, navigate] = useLocation();
   const { customer, token } = useCustomerAuth();
+  const [showComparison, setShowComparison] = useState(false);
 
   const { data: packages, isLoading } = useQuery<Package[]>({
     queryKey: ["/api/packages/active"],
@@ -288,15 +290,13 @@ export default function LandingPage() {
             <p className="mt-4 text-muted-foreground">
               Find the perfect CarePlus package for your family
             </p>
-            <a
-              href="/images/careplus-packages-comparison.png"
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={() => setShowComparison(true)}
               className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-primary underline underline-offset-4 hover:opacity-80 transition-opacity"
               data-testid="link-compare-packages"
             >
               Compare Packages
-            </a>
+            </button>
           </div>
 
           {isLoading ? (
@@ -632,6 +632,35 @@ export default function LandingPage() {
 
       {/* Bottom padding for mobile sticky bar */}
       <div className="h-16 sm:hidden" />
+
+      {/* Package Comparison Lightbox */}
+      {showComparison && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          onClick={() => setShowComparison(false)}
+          data-testid="overlay-compare-packages"
+        >
+          <div
+            className="relative max-h-full max-w-2xl w-full overflow-auto rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowComparison(false)}
+              className="absolute top-2 right-2 z-10 bg-black/60 hover:bg-black/80 text-white rounded-full w-8 h-8 flex items-center justify-center text-lg font-bold transition-colors"
+              data-testid="button-close-comparison"
+              aria-label="Close"
+            >
+              ×
+            </button>
+            <img
+              src="/images/careplus-packages-comparison.png"
+              alt="CarePlus Package Comparison"
+              className="w-full rounded-lg"
+              data-testid="img-packages-comparison"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
