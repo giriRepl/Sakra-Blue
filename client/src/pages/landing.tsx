@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import {
-  Phone,
   LogIn,
   Star,
   Sparkles,
@@ -621,12 +620,6 @@ export default function LandingPage() {
           >
             Enroll Now
           </Button>
-          <a href="tel:+918049694969" className="flex-1" data-testid="link-mobile-call">
-            <Button variant="outline" className="w-full" data-testid="button-mobile-call">
-              <Phone className="mr-2 h-4 w-4" />
-              Call Now
-            </Button>
-          </a>
         </div>
       </div>
 
