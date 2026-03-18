@@ -288,6 +288,15 @@ export default function LandingPage() {
             <p className="mt-4 text-muted-foreground">
               Find the perfect CarePlus package for your family
             </p>
+            <a
+              href="/images/careplus-packages-comparison.png"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-primary underline underline-offset-4 hover:opacity-80 transition-opacity"
+              data-testid="link-compare-packages"
+            >
+              Compare Packages
+            </a>
           </div>
 
           {isLoading ? (
