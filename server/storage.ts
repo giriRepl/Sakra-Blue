@@ -660,7 +660,11 @@ export class DatabaseStorage implements IStorage {
         packageSnapshot: purchases.packageSnapshot,
       })
       .from(purchases)
-      .where(and(sql`${purchases.purchaseDate} >= ${from}`, sql`${purchases.purchaseDate} <= ${to}`));
+      .where(and(
+        sql`${purchases.purchaseDate} >= ${from}`,
+        sql`${purchases.purchaseDate} <= ${to}`,
+        eq(purchases.isTestTransaction, false)
+      ));
 
     const totalPurchases = rows.length;
     const totalRevenue = rows.reduce((sum, r) => sum + (r.amountPaid || 0), 0);
