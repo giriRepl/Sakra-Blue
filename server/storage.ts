@@ -663,7 +663,8 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         sql`${purchases.purchaseDate} >= ${from}`,
         sql`${purchases.purchaseDate} <= ${to}`,
-        eq(purchases.isTestTransaction, false)
+        eq(purchases.isTestTransaction, false),
+        sql`${purchases.paymentStatus} IN ('captured', 'paid')`
       ));
 
     const totalPurchases = rows.length;
