@@ -81,6 +81,7 @@ export interface IStorage {
 
   getAllPurchases(limit: number, offset: number, search?: string): Promise<{ purchases: any[]; total: number }>;
   cancelPurchaseWithRefund(id: string, refundId: string): Promise<Purchase | undefined>;
+  updatePurchaseTestFlag(id: string, isTestTransaction: boolean): Promise<Purchase | undefined>;
 
   // Redemptions
   createRedemption(redemption: InsertRedemption): Promise<Redemption>;
@@ -344,6 +345,7 @@ export class DatabaseStorage implements IStorage {
         customerId: purchases.customerId,
         cancelledAt: purchases.cancelledAt,
         razorpayRefundId: purchases.razorpayRefundId,
+        isTestTransaction: purchases.isTestTransaction,
       })
       .from(purchases)
       .where(whereClause)
@@ -373,6 +375,7 @@ export class DatabaseStorage implements IStorage {
         redemptionCount: purchaseRedemptions.length,
         cancelledAt: p.cancelledAt,
         razorpayRefundId: p.razorpayRefundId,
+        isTestTransaction: p.isTestTransaction,
       });
     }
 
@@ -383,6 +386,15 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db
       .update(purchases)
       .set({ paymentStatus: "cancelled", cancelledAt: new Date(), razorpayRefundId: refundId })
+      .where(eq(purchases.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async updatePurchaseTestFlag(id: string, isTestTransaction: boolean): Promise<Purchase | undefined> {
+    const [updated] = await db
+      .update(purchases)
+      .set({ isTestTransaction })
       .where(eq(purchases.id, id))
       .returning();
     return updated || undefined;

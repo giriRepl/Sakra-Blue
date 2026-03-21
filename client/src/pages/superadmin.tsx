@@ -1346,6 +1346,25 @@ function AllPurchasesPage() {
     },
   });
 
+  const testFlagMutation = useMutation({
+    mutationFn: async ({ purchaseId, isTestTransaction }: { purchaseId: string; isTestTransaction: boolean }) => {
+      const res = await superAdminFetch(`/api/superadmin/purchases/${purchaseId}/test-flag`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isTestTransaction }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Failed to update");
+      return body;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/superadmin/purchases"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
   const purchasesList = data?.purchases ?? [];
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / pageSize);
@@ -1429,6 +1448,7 @@ function AllPurchasesPage() {
                   <TableHead data-testid="th-purchase-payment-id">Payment ID</TableHead>
                   <TableHead data-testid="th-purchase-amount">Amount</TableHead>
                   <TableHead data-testid="th-purchase-status">Status</TableHead>
+                  <TableHead data-testid="th-purchase-test">Test</TableHead>
                   <TableHead data-testid="th-purchase-action">Action</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1469,6 +1489,20 @@ function AllPurchasesPage() {
                       >
                         {p.paymentStatus}
                       </Badge>
+                    </TableCell>
+                    <TableCell data-testid={`cell-purchase-test-${p.id}`}>
+                      <button
+                        onClick={() => testFlagMutation.mutate({ purchaseId: p.id, isTestTransaction: !p.isTestTransaction })}
+                        disabled={testFlagMutation.isPending}
+                        className={`text-xs px-2 py-1 rounded-full border font-medium transition-colors ${
+                          p.isTestTransaction
+                            ? "bg-amber-100 border-amber-400 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+                            : "bg-muted border-border text-muted-foreground hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700"
+                        }`}
+                        data-testid={`button-test-flag-${p.id}`}
+                      >
+                        {p.isTestTransaction ? "Test ✓" : "Test"}
+                      </button>
                     </TableCell>
                     <TableCell data-testid={`cell-purchase-action-${p.id}`}>
                       {(p.paymentStatus === "captured" || p.paymentStatus === "paid") && p.redemptionCount === 0 && (

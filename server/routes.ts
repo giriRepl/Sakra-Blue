@@ -1485,6 +1485,22 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/superadmin/purchases/:id/test-flag", requireSuperAdminAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { isTestTransaction } = req.body;
+      if (typeof isTestTransaction !== "boolean") {
+        return res.status(400).json({ error: "isTestTransaction must be a boolean" });
+      }
+      const updated = await storage.updatePurchaseTestFlag(id, isTestTransaction);
+      if (!updated) return res.status(404).json({ error: "Purchase not found" });
+      res.json({ success: true, isTestTransaction: updated.isTestTransaction });
+    } catch (error) {
+      console.error("Failed to update test flag:", error);
+      res.status(500).json({ error: "Failed to update test flag" });
+    }
+  });
+
   app.post("/api/superadmin/purchases/:id/cancel-refund", requireSuperAdminAuth, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
