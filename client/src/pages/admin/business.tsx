@@ -91,7 +91,7 @@ function formatTime(dateStr: string) {
 // ────────────────────────────────────────────────
 
 function DashboardTab() {
-  const [preset, setPreset] = useState<DatePreset>("today");
+  const [preset, setPreset] = useState<DatePreset>("30days");
   const [customFrom, setCustomFrom] = useState(toInputDate(new Date()));
   const [customTo, setCustomTo] = useState(toInputDate(new Date()));
 
