@@ -82,6 +82,7 @@ export interface IStorage {
   getAllPurchases(limit: number, offset: number, search?: string): Promise<{ purchases: any[]; total: number }>;
   cancelPurchaseWithRefund(id: string, refundId: string): Promise<Purchase | undefined>;
   updatePurchaseTestFlag(id: string, isTestTransaction: boolean): Promise<Purchase | undefined>;
+  getBusinessDashboardStats(from: Date, to: Date): Promise<{ totalPurchases: number; totalRevenue: number; packageWise: { title: string; count: number; revenue: number }[]; byStatus: Record<string, number> }>;
 
   // Redemptions
   createRedemption(redemption: InsertRedemption): Promise<Redemption>;
@@ -649,6 +650,35 @@ export class DatabaseStorage implements IStorage {
     const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(paymentFailures);
     const failures = await db.select().from(paymentFailures).orderBy(desc(paymentFailures.createdAt)).limit(limit).offset(offset);
     return { failures, total: countResult.count };
+  }
+
+  async getBusinessDashboardStats(from: Date, to: Date): Promise<{ totalPurchases: number; totalRevenue: number; packageWise: { title: string; count: number; revenue: number }[]; byStatus: Record<string, number> }> {
+    const rows = await db
+      .select({
+        amountPaid: purchases.amountPaid,
+        paymentStatus: purchases.paymentStatus,
+        packageSnapshot: purchases.packageSnapshot,
+      })
+      .from(purchases)
+      .where(and(sql`${purchases.purchaseDate} >= ${from}`, sql`${purchases.purchaseDate} <= ${to}`));
+
+    const totalPurchases = rows.length;
+    const totalRevenue = rows.reduce((sum, r) => sum + (r.amountPaid || 0), 0);
+
+    const packageMap = new Map<string, { count: number; revenue: number }>();
+    const statusMap: Record<string, number> = {};
+    for (const r of rows) {
+      const title = (r.packageSnapshot as any)?.title || "Unknown";
+      const existing = packageMap.get(title) || { count: 0, revenue: 0 };
+      packageMap.set(title, { count: existing.count + 1, revenue: existing.revenue + (r.amountPaid || 0) });
+      statusMap[r.paymentStatus] = (statusMap[r.paymentStatus] || 0) + 1;
+    }
+
+    const packageWise = Array.from(packageMap.entries())
+      .map(([title, { count, revenue }]) => ({ title, count, revenue }))
+      .sort((a, b) => b.count - a.count);
+
+    return { totalPurchases, totalRevenue, packageWise, byStatus: statusMap };
   }
 
   // Stats

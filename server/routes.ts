@@ -833,6 +833,85 @@ export async function registerRoutes(
     }
   });
 
+  // ============ ADMIN BUSINESS ROUTES ============
+
+  // Business dashboard with date range
+  app.get("/api/admin/business-dashboard", requireAdminAuth, async (req, res) => {
+    try {
+      const from = req.query.from ? new Date(req.query.from as string) : new Date(new Date().setHours(0, 0, 0, 0));
+      const to = req.query.to ? new Date(req.query.to as string) : new Date(new Date().setHours(23, 59, 59, 999));
+      const stats = await storage.getBusinessDashboardStats(from, to);
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch business stats" });
+    }
+  });
+
+  // All purchases (paginated, searchable)
+  app.get("/api/admin/all-purchases", requireAdminAuth, async (req, res) => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const search = (req.query.search as string || "").trim();
+      const offset = (page - 1) * limit;
+      const result = await storage.getAllPurchases(limit, offset, search);
+      res.json({ ...result, page, limit });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch purchases" });
+    }
+  });
+
+  // Toggle test flag on a purchase
+  app.patch("/api/admin/all-purchases/:id/test-flag", requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { isTestTransaction } = req.body;
+      if (typeof isTestTransaction !== "boolean") {
+        return res.status(400).json({ error: "isTestTransaction must be a boolean" });
+      }
+      const updated = await storage.updatePurchaseTestFlag(id, isTestTransaction);
+      if (!updated) return res.status(404).json({ error: "Purchase not found" });
+      res.json({ success: true, isTestTransaction: updated.isTestTransaction });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update test flag" });
+    }
+  });
+
+  // Cancel & refund a purchase (admin)
+  app.post("/api/admin/all-purchases/:id/cancel-refund", requireAdminAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const purchase = await storage.getPurchase(id);
+      if (!purchase) return res.status(404).json({ error: "Purchase not found" });
+      if (!["captured", "paid"].includes(purchase.paymentStatus)) {
+        return res.status(400).json({ error: "Only successful payments can be refunded" });
+      }
+      if (purchase.redemptions && purchase.redemptions.length > 0) {
+        return res.status(400).json({ error: "Cannot cancel a plan after services have been redeemed" });
+      }
+      if (!purchase.razorpayPaymentId) {
+        return res.status(400).json({ error: "No Razorpay payment ID found for this purchase" });
+      }
+      const rzpPayment = await razorpay.payments.fetch(purchase.razorpayPaymentId);
+      const rzpStatus = (rzpPayment as any).status;
+      if (rzpStatus === "authorized") {
+        await razorpay.payments.capture(purchase.razorpayPaymentId, purchase.amountPaid * 100, "INR");
+      } else if (rzpStatus !== "captured") {
+        return res.status(400).json({ error: `Payment cannot be refunded (Razorpay status: ${rzpStatus})` });
+      }
+      const refund = await razorpay.payments.refund(purchase.razorpayPaymentId, {
+        amount: purchase.amountPaid * 100,
+        speed: "normal",
+        notes: { reason: "Plan cancelled by admin", purchaseId: id },
+      });
+      await storage.cancelPurchaseWithRefund(id, refund.id);
+      res.json({ success: true, refundId: refund.id, amountRupees: purchase.amountPaid });
+    } catch (error: any) {
+      const message = error?.error?.description || error?.message || "Failed to process refund";
+      res.status(500).json({ error: message });
+    }
+  });
+
   // ============ ADMIN REDEMPTION ROUTES ============
 
   // Get purchases by mobile (for admin)

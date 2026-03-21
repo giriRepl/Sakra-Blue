@@ -21,6 +21,7 @@ import PackageViewPage from "@/pages/admin/package-view";
 import AdminRedeemPage from "@/pages/admin/redeem";
 import AdminAssignPage from "@/pages/admin/assign";
 import AdminCorporatesPage from "@/pages/admin/corporates";
+import AdminBusinessPage from "@/pages/admin/business";
 import SuperAdminPage from "@/pages/superadmin";
 
 function Router() {
@@ -43,6 +44,7 @@ function Router() {
       <Route path="/admin/redeem" component={AdminRedeemPage} />
       <Route path="/admin/assign" component={AdminAssignPage} />
       <Route path="/admin/corporates" component={AdminCorporatesPage} />
+      <Route path="/admin/business" component={AdminBusinessPage} />
 
       {/* Super Admin Routes */}
       <Route path="/superadmin" component={SuperAdminPage} />
