@@ -10,6 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -538,14 +545,19 @@ function AllPurchasesTab() {
         </Card>
       )}
 
-      {/* Cancel confirm dialog */}
-      {confirmPurchase && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <Card className="w-full max-w-md mx-4">
-            <CardHeader>
-              <CardTitle className="text-destructive">Cancel & Refund</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
+      {/* Cancel & Refund Dialog */}
+      <Dialog
+        open={!!confirmCancelId}
+        onOpenChange={(open) => {
+          if (!open) { setConfirmCancelId(null); setRefundPasscode(""); }
+        }}
+      >
+        <DialogContent data-testid="dialog-cancel-refund">
+          <DialogHeader>
+            <DialogTitle className="text-destructive">Cancel & Refund</DialogTitle>
+          </DialogHeader>
+          {confirmPurchase && (
+            <div className="space-y-3 text-sm">
               <div>
                 <span className="text-muted-foreground">Customer: </span>
                 <span className="font-medium">{confirmPurchase.customerName}</span>{" "}
@@ -586,29 +598,27 @@ function AllPurchasesTab() {
                   autoFocus
                 />
               </div>
-            </CardContent>
-            <div className="flex gap-3 p-6 pt-0">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => { setConfirmCancelId(null); setRefundPasscode(""); }}
-                data-testid="button-cancel-dialog-cancel"
-              >
-                Go Back
-              </Button>
-              <Button
-                variant="destructive"
-                className="flex-1"
-                disabled={cancelRefundMutation.isPending || !refundPasscode}
-                onClick={() => cancelRefundMutation.mutate({ purchaseId: confirmCancelId!, passcode: refundPasscode })}
-                data-testid="button-confirm-refund"
-              >
-                {cancelRefundMutation.isPending ? "Processing…" : "Confirm Refund"}
-              </Button>
             </div>
-          </Card>
-        </div>
-      )}
+          )}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => { setConfirmCancelId(null); setRefundPasscode(""); }}
+              data-testid="button-cancel-dialog-cancel"
+            >
+              Go Back
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={cancelRefundMutation.isPending || !refundPasscode}
+              onClick={() => cancelRefundMutation.mutate({ purchaseId: confirmCancelId!, passcode: refundPasscode })}
+              data-testid="button-confirm-refund"
+            >
+              {cancelRefundMutation.isPending ? "Processing…" : "Confirm Refund"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
