@@ -295,6 +295,7 @@ function AllPurchasesTab() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
+  const [refundPasscode, setRefundPasscode] = useState("");
   const pageSize = 20;
 
   const { data, isLoading } = useQuery<{
@@ -316,8 +317,8 @@ function AllPurchasesTab() {
   });
 
   const cancelRefundMutation = useMutation({
-    mutationFn: async (purchaseId: string) => {
-      const res = await apiRequest("POST", `/api/admin/all-purchases/${purchaseId}/cancel-refund`);
+    mutationFn: async ({ purchaseId, passcode }: { purchaseId: string; passcode: string }) => {
+      const res = await apiRequest("POST", `/api/admin/all-purchases/${purchaseId}/cancel-refund`, { passcode });
       const body = await res.json();
       return body;
     },
@@ -327,11 +328,11 @@ function AllPurchasesTab() {
         description: `Refund of ${formatINR(data.amountRupees)} initiated. Refund ID: ${data.refundId}`,
       });
       setConfirmCancelId(null);
+      setRefundPasscode("");
       queryClient.invalidateQueries({ queryKey: ["/api/admin/all-purchases"] });
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
-      setConfirmCancelId(null);
     },
   });
 
@@ -567,12 +568,30 @@ function AllPurchasesTab() {
               <p className="text-muted-foreground text-xs">
                 This will immediately cancel the plan and initiate a full refund via Razorpay.
               </p>
+              <div className="pt-1">
+                <label className="block text-xs font-medium text-muted-foreground mb-1">
+                  Refund Passcode
+                </label>
+                <Input
+                  type="password"
+                  placeholder="Enter passcode to authorise refund"
+                  value={refundPasscode}
+                  onChange={(e) => setRefundPasscode(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && refundPasscode && !cancelRefundMutation.isPending) {
+                      cancelRefundMutation.mutate({ purchaseId: confirmCancelId!, passcode: refundPasscode });
+                    }
+                  }}
+                  data-testid="input-refund-passcode"
+                  autoFocus
+                />
+              </div>
             </CardContent>
             <div className="flex gap-3 p-6 pt-0">
               <Button
                 variant="outline"
                 className="flex-1"
-                onClick={() => setConfirmCancelId(null)}
+                onClick={() => { setConfirmCancelId(null); setRefundPasscode(""); }}
                 data-testid="button-cancel-dialog-cancel"
               >
                 Go Back
@@ -580,8 +599,8 @@ function AllPurchasesTab() {
               <Button
                 variant="destructive"
                 className="flex-1"
-                disabled={cancelRefundMutation.isPending}
-                onClick={() => cancelRefundMutation.mutate(confirmCancelId!)}
+                disabled={cancelRefundMutation.isPending || !refundPasscode}
+                onClick={() => cancelRefundMutation.mutate({ purchaseId: confirmCancelId!, passcode: refundPasscode })}
                 data-testid="button-confirm-refund"
               >
                 {cancelRefundMutation.isPending ? "Processing…" : "Confirm Refund"}

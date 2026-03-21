@@ -881,6 +881,14 @@ export async function registerRoutes(
   app.post("/api/admin/all-purchases/:id/cancel-refund", requireAdminAuth, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+      const { passcode } = req.body;
+      const refundPasscode = process.env.REFUND_PASSCODE;
+      if (!refundPasscode) {
+        return res.status(500).json({ error: "Refund passcode not configured on server" });
+      }
+      if (!passcode || passcode !== refundPasscode) {
+        return res.status(403).json({ error: "Invalid refund passcode" });
+      }
       const purchase = await storage.getPurchase(id);
       if (!purchase) return res.status(404).json({ error: "Purchase not found" });
       if (!["captured", "paid"].includes(purchase.paymentStatus)) {
