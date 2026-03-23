@@ -1172,7 +1172,7 @@ export async function registerRoutes(
       }
       const otp = generateNumericOtp(4);
       assignOtpStore.set(mobile, { otp, expiresAt: new Date(Date.now() + 10 * 60 * 1000) });
-      const smsResult = await sendTemplatedSms(mobile, "Nap_OTP", {
+      const smsResult = await sendTemplatedSms(mobile, "Nap_Otp", {
         "{#OTP#}": otp,
       });
       if (!smsResult.success) {
