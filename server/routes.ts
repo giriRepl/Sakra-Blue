@@ -1306,6 +1306,34 @@ export async function registerRoutes(
         relation: "Self",
       });
 
+      // Generate invoice and send email if customer has an email address
+      const invoiceNum = generateInvoiceNumber(purchase.purchaseDate);
+      await storage.updatePurchaseInvoice(purchase.id, { invoiceNumber: invoiceNum, invoiceEmailSent: false });
+
+      if (customer.email) {
+        const invoiceData = {
+          invoiceNumber: invoiceNum,
+          customerName: customer.name || "Customer",
+          packageName: pkg.title,
+          totalAmount: purchase.amountPaid,
+          purchaseDate: purchase.purchaseDate,
+        };
+        const html = buildInvoiceEmailHtml(invoiceData);
+        generateInvoicePdf(invoiceData)
+          .then(async (pdfBuffer) => {
+            const result = await sendEmail(customer.email!, buildInvoiceEmailSubject(invoiceNum), html, {
+              attachments: [{ filename: `${invoiceNum}.pdf`, content: pdfBuffer, contentType: "application/pdf" }],
+            });
+            if (result.success) {
+              await storage.updatePurchaseInvoice(purchase.id, { invoiceNumber: invoiceNum, invoiceEmailSent: true });
+              console.log("[Invoice] Email sent to", customer.email, result.attachmentsSkipped ? "(PDF attachment skipped)" : "");
+            } else {
+              console.error("[Invoice] Email failed:", result.error);
+            }
+          })
+          .catch(err => console.error("[Invoice] PDF/email error:", err));
+      }
+
       res.json({ 
         success: true, 
         purchase,
