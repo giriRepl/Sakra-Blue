@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
@@ -52,7 +52,6 @@ export default function AdminAssignPage() {
   const [selectedPackage, setSelectedPackage] = useState<PackageType | null>(null);
   const [selectedTierIndex, setSelectedTierIndex] = useState(0);
   const [mobile, setMobile] = useState("");
-  const [generatedOtp, setGeneratedOtp] = useState("");
   const [enteredOtp, setEnteredOtp] = useState("");
   const [otpError, setOtpError] = useState("");
   const [holderData, setHolderData] = useState<HolderData | null>(null);
@@ -83,11 +82,41 @@ export default function AdminAssignPage() {
     enabled: !!token,
   });
 
-  const generateOtp = useCallback(() => {
-    const otp = Math.floor(1000 + Math.random() * 9000).toString();
-    setGeneratedOtp(otp);
-    return otp;
-  }, []);
+  const sendOtpMutation = useMutation({
+    mutationFn: async (mob: string) => {
+      const res = await apiRequest("POST", "/api/admin/assign/send-otp", { mobile: mob });
+      return res.json();
+    },
+    onSuccess: () => {
+      setEnteredOtp("");
+      setOtpError("");
+      setStep("otp");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to send OTP",
+        description: error.message || "Could not send OTP. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const verifyOtpMutation = useMutation({
+    mutationFn: async ({ mob, otp }: { mob: string; otp: string }) => {
+      const res = await apiRequest("POST", "/api/admin/assign/verify-otp", { mobile: mob, otp });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Invalid OTP");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      setStep("holder");
+    },
+    onError: (error: Error) => {
+      setOtpError(error.message || "Invalid OTP. Please try again.");
+    },
+  });
 
   const assignMutation = useMutation({
     mutationFn: async (data: {
@@ -122,7 +151,6 @@ export default function AdminAssignPage() {
     setSelectedPackage(null);
     setSelectedTierIndex(0);
     setMobile("");
-    setGeneratedOtp("");
     setEnteredOtp("");
     setOtpError("");
     setHolderData(null);
@@ -142,19 +170,12 @@ export default function AdminAssignPage() {
 
   const handleMobileSubmit = () => {
     if (mobile.length === 10) {
-      generateOtp();
-      setEnteredOtp("");
-      setOtpError("");
-      setStep("otp");
+      sendOtpMutation.mutate(mobile);
     }
   };
 
   const handleOtpVerify = () => {
-    if (enteredOtp !== generatedOtp) {
-      setOtpError("Invalid OTP. Please try again.");
-      return;
-    }
-    setStep("holder");
+    verifyOtpMutation.mutate({ mob: mobile, otp: enteredOtp });
   };
 
   const handleHolderSubmit = (data: HolderData) => {
@@ -446,12 +467,15 @@ export default function AdminAssignPage() {
               </div>
               <Button
                 className="w-full"
-                disabled={mobile.length !== 10}
+                disabled={mobile.length !== 10 || sendOtpMutation.isPending}
                 onClick={handleMobileSubmit}
                 data-testid="button-continue-mobile"
               >
-                Continue
-                <ArrowRight className="h-4 w-4 ml-2" />
+                {sendOtpMutation.isPending ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending OTP…</>
+                ) : (
+                  <>Send OTP <ArrowRight className="h-4 w-4 ml-2" /></>
+                )}
               </Button>
             </CardContent>
           </Card>
@@ -466,24 +490,13 @@ export default function AdminAssignPage() {
                 Verify OTP
               </CardTitle>
               <CardDescription>
-                Share this OTP with the customer for verification
+                An OTP has been sent to the customer's mobile{" "}
+                <span className="font-medium text-foreground">+91 {mobile}</span>
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground mb-2">Generated OTP (share with customer)</p>
-                <div className="bg-primary/10 rounded-lg p-4 inline-block" data-testid="display-generated-otp">
-                  <span className="text-4xl font-bold tracking-[0.5em] text-primary">{generatedOtp}</span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  SMS integration coming soon
-                </p>
-              </div>
-
-              <Separator />
-
               <div className="space-y-3">
-                <p className="text-sm text-center font-medium">Enter OTP to continue</p>
+                <p className="text-sm text-center font-medium">Enter the OTP received by the customer</p>
                 <div className="flex justify-center">
                   <InputOTP
                     maxLength={4}
@@ -505,16 +518,33 @@ export default function AdminAssignPage() {
                 {otpError && (
                   <p className="text-sm text-destructive text-center" data-testid="text-otp-error">{otpError}</p>
                 )}
+                <div className="flex justify-center">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-muted-foreground"
+                    disabled={sendOtpMutation.isPending}
+                    onClick={() => sendOtpMutation.mutate(mobile)}
+                    data-testid="button-resend-otp"
+                  >
+                    {sendOtpMutation.isPending ? (
+                      <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Sending…</>
+                    ) : "Resend OTP"}
+                  </Button>
+                </div>
               </div>
 
               <Button
                 className="w-full"
-                disabled={enteredOtp.length !== 4}
+                disabled={enteredOtp.length !== 4 || verifyOtpMutation.isPending}
                 onClick={handleOtpVerify}
                 data-testid="button-verify-otp"
               >
-                Verify & Continue
-                <ArrowRight className="h-4 w-4 ml-2" />
+                {verifyOtpMutation.isPending ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Verifying…</>
+                ) : (
+                  <>Verify & Continue <ArrowRight className="h-4 w-4 ml-2" /></>
+                )}
               </Button>
             </CardContent>
           </Card>

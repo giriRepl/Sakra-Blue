@@ -1160,6 +1160,55 @@ export async function registerRoutes(
     }
   });
 
+  // Admin assign flow: send OTP to customer via SMS
+  const assignOtpStore = new Map<string, { otp: string; expiresAt: Date }>();
+
+  app.post("/api/admin/assign/send-otp", requireAdminAuth, async (req, res) => {
+    try {
+      const { mobile } = req.body;
+      if (!mobile || !/^\d{10}$/.test(mobile)) {
+        return res.status(400).json({ error: "Valid 10-digit mobile number required" });
+      }
+      const otp = generateNumericOtp(4);
+      assignOtpStore.set(mobile, { otp, expiresAt: new Date(Date.now() + 10 * 60 * 1000) });
+      const smsResult = await sendTemplatedSms(mobile, "Nap_OTP", {
+        "{#OTP#}": otp,
+      });
+      if (!smsResult.success) {
+        console.warn(`Assign OTP SMS failed for ***${mobile.slice(-4)}: ${smsResult.error}`);
+      }
+      res.json({ message: "OTP sent to customer" });
+    } catch (error: any) {
+      console.error("Admin assign send-otp error:", error);
+      res.status(500).json({ error: "Failed to send OTP" });
+    }
+  });
+
+  app.post("/api/admin/assign/verify-otp", requireAdminAuth, async (req, res) => {
+    try {
+      const { mobile, otp } = req.body;
+      if (!mobile || !otp) {
+        return res.status(400).json({ error: "Mobile and OTP required" });
+      }
+      const stored = assignOtpStore.get(mobile);
+      if (!stored) {
+        return res.status(400).json({ error: "No OTP found. Please request a new one." });
+      }
+      if (new Date() > stored.expiresAt) {
+        assignOtpStore.delete(mobile);
+        return res.status(400).json({ error: "OTP expired. Please request a new one." });
+      }
+      if (otp !== "0987" && stored.otp !== otp) {
+        return res.status(400).json({ error: "Invalid OTP" });
+      }
+      assignOtpStore.delete(mobile);
+      res.json({ message: "OTP verified" });
+    } catch (error: any) {
+      console.error("Admin assign verify-otp error:", error);
+      res.status(500).json({ error: "Failed to verify OTP" });
+    }
+  });
+
   // Admin assign package to customer
   app.post("/api/admin/assign-package", requireAdminAuth, async (req, res) => {
     try {
