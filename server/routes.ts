@@ -213,6 +213,7 @@ export async function registerRoutes(
         razorpayOrderId: order.id,
         razorpayReceipt: receipt,
         paymentStatus: "pending",
+        paymentSource: "razorpay",
       });
 
       res.json({
@@ -1264,6 +1265,13 @@ export async function registerRoutes(
       const amountCollected = saleDetails?.amountCollected != null
         ? Number(saleDetails.amountCollected)
         : selectedTier.price;
+
+      // Generate internal order ID: INT-YYYYMMDD-XXXXXX
+      const now = new Date();
+      const datePart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+      const randPart = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const internalOrderId = `INT-${datePart}-${randPart}`;
+
       const purchase = await storage.createPurchase({
         customerId: customer.id,
         packageId: pkg.id,
@@ -1272,6 +1280,8 @@ export async function registerRoutes(
         expiryDate,
         amountPaid: amountCollected,
         paymentStatus: "captured",
+        paymentSource: "internal",
+        razorpayOrderId: internalOrderId,
         salesPersonName: saleDetails?.salesPersonName || null,
         modeOfPayment: saleDetails?.modeOfPayment || null,
       });

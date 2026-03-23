@@ -119,6 +119,7 @@ export const purchases = pgTable("purchases", {
   isTestTransaction: boolean("is_test_transaction").default(false).notNull(),
   salesPersonName: text("sales_person_name"),
   modeOfPayment: text("mode_of_payment"),
+  paymentSource: text("payment_source").notNull().default("razorpay"),
 });
 
 export const purchasesRelations = relations(purchases, ({ one }) => ({
