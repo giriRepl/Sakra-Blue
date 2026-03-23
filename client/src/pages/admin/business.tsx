@@ -450,8 +450,16 @@ function AllPurchasesTab() {
                       {p.packageTitle}
                       {p.numPeople ? ` (${p.numPeople})` : ""}
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{p.razorpayReceipt}</TableCell>
-                    <TableCell className="font-mono text-xs">{p.razorpayPaymentId}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {p.paymentSource === "internal"
+                        ? <span className="text-muted-foreground italic">Internal</span>
+                        : (p.razorpayReceipt || "–")}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {p.paymentSource === "internal"
+                        ? <span className="text-muted-foreground italic">Internal</span>
+                        : (p.razorpayPaymentId || "–")}
+                    </TableCell>
                     <TableCell className="whitespace-nowrap">
                       {formatINR(p.amountPaid)}
                     </TableCell>

@@ -347,6 +347,7 @@ export class DatabaseStorage implements IStorage {
         cancelledAt: purchases.cancelledAt,
         razorpayRefundId: purchases.razorpayRefundId,
         isTestTransaction: purchases.isTestTransaction,
+        paymentSource: purchases.paymentSource,
       })
       .from(purchases)
       .where(whereClause)
