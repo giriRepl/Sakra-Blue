@@ -34,7 +34,6 @@ const holderSchema = z.object({
 const memberSchema = z.object({
   name: z.string().min(1, "Name is required"),
   age: z.coerce.number().min(1, "Age must be positive"),
-  relation: z.string().min(1, "Relation is required"),
 });
 
 const saleSchema = z.object({
@@ -51,6 +50,7 @@ type SaleData = z.infer<typeof saleSchema>;
 
 interface MemberWithType extends MemberData {
   type: "adult" | "kid";
+  relation?: string;
 }
 
 export default function AdminAssignPage() {
@@ -85,7 +85,6 @@ export default function AdminAssignPage() {
     defaultValues: {
       name: "",
       age: 30,
-      relation: "",
     },
   });
 
@@ -216,14 +215,14 @@ export default function AdminAssignPage() {
     if (totalMembers > 0) {
       const membersList: MemberWithType[] = [];
       for (let i = 0; i < adultsCount - 1; i++) {
-        membersList.push({ name: "", age: 30, relation: "", type: "adult" });
+        membersList.push({ name: "", age: 30, type: "adult" });
       }
       for (let i = 0; i < kidsCount; i++) {
-        membersList.push({ name: "", age: 10, relation: "", type: "kid" });
+        membersList.push({ name: "", age: 10, type: "kid" });
       }
       setMembers(membersList);
       setCurrentMemberIndex(0);
-      memberForm.reset({ name: "", age: membersList[0]?.type === "kid" ? 10 : 30, relation: "" });
+      memberForm.reset({ name: "", age: membersList[0]?.type === "kid" ? 10 : 30 });
       setStep("members");
     } else {
       // Reset sale form amount to tier price before showing sale step
@@ -247,7 +246,6 @@ export default function AdminAssignPage() {
       memberForm.reset({
         name: "",
         age: updatedMembers[nextIndex]?.type === "kid" ? 10 : 30,
-        relation: "",
       });
     } else {
       // Reset sale form amount to tier price before showing sale step
@@ -270,7 +268,6 @@ export default function AdminAssignPage() {
       memberForm.reset({
         name: members[prevIndex].name,
         age: members[prevIndex].age,
-        relation: members[prevIndex].relation,
       });
     }
   };
@@ -312,7 +309,6 @@ export default function AdminAssignPage() {
           memberForm.reset({
             name: members[members.length - 1].name,
             age: members[members.length - 1].age,
-            relation: members[members.length - 1].relation,
           });
           setStep("members");
         } else {
@@ -728,34 +724,19 @@ export default function AdminAssignPage() {
                       </FormItem>
                     )}
                   />
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <FormField
-                      control={memberForm.control}
-                      name="age"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Age</FormLabel>
-                          <FormControl>
-                            <Input {...field} type="number" min={1} placeholder="Age" className="h-12" data-testid="input-member-age" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={memberForm.control}
-                      name="relation"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Relation to Account Holder</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="e.g., Spouse, Son, Daughter" className="h-12" data-testid="input-member-relation" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                  <FormField
+                    control={memberForm.control}
+                    name="age"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Age</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="number" min={1} placeholder="Age" className="h-12" data-testid="input-member-age" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   <Button type="submit" className="w-full" data-testid="button-continue-member">
                     {currentMemberIndex === members.length - 1 ? "Continue to Review" : "Next Member"}
                     <ArrowRight className="h-4 w-4 ml-2" />
@@ -918,7 +899,7 @@ export default function AdminAssignPage() {
                           </Badge>
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
-                          {member.age} years • {member.relation}
+                          {member.age} years
                         </p>
                       </div>
                     ))}
