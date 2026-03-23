@@ -982,9 +982,37 @@ export async function registerRoutes(
         "{#Service#}": "Service",
       });
 
+      // Send OTP via email if customer has an email address
+      let emailSent = false;
+      if (customer.email) {
+        const firstName = (customer.name || "Customer").split(" ")[0];
+        const otpEmailHtml = `
+          <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;">
+            <h2 style="color:#c0392b;margin-bottom:8px;">Service Redemption OTP</h2>
+            <p style="color:#333;">Hi ${firstName},</p>
+            <p style="color:#333;">Please use the OTP below to verify your service redemption at Sakra IKOC CarePlus:</p>
+            <div style="background:#fdf2f2;border:2px solid #c0392b;border-radius:8px;padding:20px;text-align:center;margin:24px 0;">
+              <span style="font-size:36px;font-weight:bold;letter-spacing:12px;color:#c0392b;">${otp}</span>
+            </div>
+            <p style="color:#666;font-size:13px;">This OTP is valid for 10 minutes. Do not share it with anyone.</p>
+            <p style="color:#666;font-size:13px;">If you did not request this, please contact us immediately.</p>
+          </div>`;
+        sendEmail(customer.email, "Your CarePlus Redemption OTP", otpEmailHtml)
+          .then(result => {
+            if (result.success) {
+              console.log("[Redemption OTP] Email sent to", customer.email);
+            } else {
+              console.warn("[Redemption OTP] Email failed:", result.error);
+            }
+          })
+          .catch(err => console.error("[Redemption OTP] Email error:", err));
+        emailSent = true;
+      }
+
       res.json({
         message: "Redemption OTP sent to customer",
         smsSent: smsResult.success,
+        emailSent,
         mobileLast4: customer.mobile.slice(-4),
       });
     } catch (error) {
