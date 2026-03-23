@@ -117,6 +117,8 @@ export const purchases = pgTable("purchases", {
   cancelledAt: timestamp("cancelled_at"),
   razorpayRefundId: text("razorpay_refund_id"),
   isTestTransaction: boolean("is_test_transaction").default(false).notNull(),
+  salesPersonName: text("sales_person_name"),
+  modeOfPayment: text("mode_of_payment"),
 });
 
 export const purchasesRelations = relations(purchases, ({ one }) => ({

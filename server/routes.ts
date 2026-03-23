@@ -1212,7 +1212,7 @@ export async function registerRoutes(
   // Admin assign package to customer
   app.post("/api/admin/assign-package", requireAdminAuth, async (req, res) => {
     try {
-      const { packageId, mobile, holder, members, selectedTierIndex } = req.body;
+      const { packageId, mobile, holder, members, selectedTierIndex, saleDetails } = req.body;
 
       if (!packageId || !mobile || !holder) {
         return res.status(400).json({ error: "Missing required fields" });
@@ -1235,6 +1235,7 @@ export async function registerRoutes(
         customer = await storage.createCustomer({
           mobile,
           name: holder.name,
+          email: holder.email || null,
           age: holder.age,
           location: holder.location,
           gender: holder.gender,
@@ -1260,13 +1261,19 @@ export async function registerRoutes(
 
       // Create purchase
       const expiryDate = addMonths(new Date(), pkg.validityMonths);
+      const amountCollected = saleDetails?.amountCollected != null
+        ? Number(saleDetails.amountCollected)
+        : selectedTier.price;
       const purchase = await storage.createPurchase({
         customerId: customer.id,
         packageId: pkg.id,
         packageSnapshot: pkg,
         purchaseDate: new Date(),
         expiryDate,
-        amountPaid: selectedTier.price,
+        amountPaid: amountCollected,
+        paymentStatus: "captured",
+        salesPersonName: saleDetails?.salesPersonName || null,
+        modeOfPayment: saleDetails?.modeOfPayment || null,
       });
 
       // Create members if provided

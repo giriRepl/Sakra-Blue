@@ -21,10 +21,11 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getPackagePricingTiers, type Package as PackageType } from "@shared/schema";
 
-type Step = "package" | "mobile" | "otp" | "holder" | "members" | "confirm";
+type Step = "package" | "mobile" | "otp" | "holder" | "members" | "sale" | "confirm";
 
 const holderSchema = z.object({
   name: z.string().min(1, "Name is required"),
+  email: z.string().email("Please enter a valid email").or(z.literal("")).optional(),
   age: z.coerce.number().min(1, "Age must be positive"),
   location: z.string().min(1, "Location is required"),
   gender: z.enum(["male", "female", "other"], { required_error: "Please select gender" }),
@@ -36,8 +37,17 @@ const memberSchema = z.object({
   relation: z.string().min(1, "Relation is required"),
 });
 
+const saleSchema = z.object({
+  salesPersonName: z.string().min(1, "Salesperson name is required"),
+  amountCollected: z.coerce.number().min(0, "Amount must be 0 or more"),
+  modeOfPayment: z.enum(["cash", "card", "upi", "neft", "cheque"], {
+    required_error: "Please select a payment mode",
+  }),
+});
+
 type HolderData = z.infer<typeof holderSchema>;
 type MemberData = z.infer<typeof memberSchema>;
+type SaleData = z.infer<typeof saleSchema>;
 
 interface MemberWithType extends MemberData {
   type: "adult" | "kid";
@@ -57,11 +67,13 @@ export default function AdminAssignPage() {
   const [holderData, setHolderData] = useState<HolderData | null>(null);
   const [members, setMembers] = useState<MemberWithType[]>([]);
   const [currentMemberIndex, setCurrentMemberIndex] = useState(0);
+  const [saleDetails, setSaleDetails] = useState<SaleData | null>(null);
 
   const holderForm = useForm<HolderData>({
     resolver: zodResolver(holderSchema),
     defaultValues: {
       name: "",
+      email: "",
       age: 30,
       location: "",
       gender: undefined,
@@ -74,6 +86,15 @@ export default function AdminAssignPage() {
       name: "",
       age: 30,
       relation: "",
+    },
+  });
+
+  const saleForm = useForm<SaleData>({
+    resolver: zodResolver(saleSchema),
+    defaultValues: {
+      salesPersonName: "",
+      amountCollected: 0,
+      modeOfPayment: undefined,
     },
   });
 
@@ -125,6 +146,7 @@ export default function AdminAssignPage() {
       holder: HolderData;
       members: MemberWithType[];
       selectedTierIndex?: number;
+      saleDetails?: SaleData;
     }) => {
       const res = await apiRequest("POST", "/api/admin/assign-package", data);
       return res.json();
@@ -156,8 +178,10 @@ export default function AdminAssignPage() {
     setHolderData(null);
     setMembers([]);
     setCurrentMemberIndex(0);
+    setSaleDetails(null);
     holderForm.reset();
     memberForm.reset();
+    saleForm.reset();
   };
 
   const activePackages = packages?.filter((p) => p.isActive) || [];
@@ -202,7 +226,10 @@ export default function AdminAssignPage() {
       memberForm.reset({ name: "", age: membersList[0]?.type === "kid" ? 10 : 30, relation: "" });
       setStep("members");
     } else {
-      setStep("confirm");
+      // Reset sale form amount to tier price before showing sale step
+      const tierPrice = (tiers[selectedTierIndex] || tiers[0])?.price ?? 0;
+      saleForm.reset({ salesPersonName: "", amountCollected: tierPrice, modeOfPayment: undefined });
+      setStep("sale");
     }
   };
 
@@ -223,8 +250,17 @@ export default function AdminAssignPage() {
         relation: "",
       });
     } else {
-      setStep("confirm");
+      // Reset sale form amount to tier price before showing sale step
+      const tiers = getPackagePricingTiers(selectedPackage!);
+      const tierPrice = (tiers[selectedTierIndex] || tiers[0])?.price ?? 0;
+      saleForm.reset({ salesPersonName: "", amountCollected: tierPrice, modeOfPayment: undefined });
+      setStep("sale");
     }
+  };
+
+  const handleSaleSubmit = (data: SaleData) => {
+    setSaleDetails(data);
+    setStep("confirm");
   };
 
   const handlePrevMember = () => {
@@ -248,6 +284,7 @@ export default function AdminAssignPage() {
       holder: holderData,
       members,
       selectedTierIndex,
+      saleDetails: saleDetails ?? undefined,
     });
   };
 
@@ -269,7 +306,7 @@ export default function AdminAssignPage() {
           handlePrevMember();
         }
         break;
-      case "confirm":
+      case "sale":
         if (members.length > 0) {
           setCurrentMemberIndex(members.length - 1);
           memberForm.reset({
@@ -281,6 +318,9 @@ export default function AdminAssignPage() {
         } else {
           setStep("holder");
         }
+        break;
+      case "confirm":
+        setStep("sale");
         break;
     }
   };
@@ -578,6 +618,19 @@ export default function AdminAssignPage() {
                       </FormItem>
                     )}
                   />
+                  <FormField
+                    control={holderForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email ID <span className="text-muted-foreground font-normal">(optional)</span></FormLabel>
+                        <FormControl>
+                          <Input {...field} type="email" placeholder="customer@email.com" className="h-12" data-testid="input-holder-email" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   <div className="grid gap-4 sm:grid-cols-2">
                     <FormField
                       control={holderForm.control}
@@ -713,7 +766,82 @@ export default function AdminAssignPage() {
           </Card>
         )}
 
-        {/* Step 6: Confirmation */}
+        {/* Step 6: Sale Details */}
+        {step === "sale" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <PackageIcon className="h-5 w-5 text-primary" />
+                Sale Details
+              </CardTitle>
+              <CardDescription>
+                Enter salesperson and payment information
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Form {...saleForm}>
+                <form onSubmit={saleForm.handleSubmit(handleSaleSubmit)} className="space-y-4">
+                  <FormField
+                    control={saleForm.control}
+                    name="salesPersonName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Salesperson Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Enter salesperson's name" className="h-12" data-testid="input-sales-person-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={saleForm.control}
+                    name="amountCollected"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Amount Collected (₹)</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="number" min={0} placeholder="0" className="h-12" data-testid="input-amount-collected" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={saleForm.control}
+                    name="modeOfPayment"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Mode of Payment</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="h-12" data-testid="select-mode-of-payment">
+                              <SelectValue placeholder="Select payment mode" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="cash">Cash</SelectItem>
+                            <SelectItem value="card">Card</SelectItem>
+                            <SelectItem value="upi">UPI</SelectItem>
+                            <SelectItem value="neft">NEFT / Bank Transfer</SelectItem>
+                            <SelectItem value="cheque">Cheque</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="submit" className="w-full" data-testid="button-continue-sale">
+                    Review & Confirm
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 7: Confirmation */}
         {step === "confirm" && selectedPackage && holderData && (
           <Card>
             <CardHeader>
@@ -765,6 +893,9 @@ export default function AdminAssignPage() {
                   <p className="text-sm text-muted-foreground">
                     {holderData.age} years, {holderData.gender} • {holderData.location}
                   </p>
+                  {holderData.email && (
+                    <p className="text-sm text-muted-foreground">{holderData.email}</p>
+                  )}
                 </div>
               </div>
 
@@ -793,6 +924,30 @@ export default function AdminAssignPage() {
                     ))}
                   </div>
                 </div>
+              )}
+
+              {/* Sale Details */}
+              {saleDetails && (
+                <>
+                  <Separator />
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-2">Sale Details</h4>
+                    <div className="p-3 rounded-lg border space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Salesperson</span>
+                        <span className="font-medium">{saleDetails.salesPersonName}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Amount Collected</span>
+                        <span className="font-semibold text-primary">₹{Number(saleDetails.amountCollected).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Mode of Payment</span>
+                        <span className="font-medium capitalize">{saleDetails.modeOfPayment === "neft" ? "NEFT / Bank Transfer" : saleDetails.modeOfPayment}</span>
+                      </div>
+                    </div>
+                  </div>
+                </>
               )}
 
               <Separator />
